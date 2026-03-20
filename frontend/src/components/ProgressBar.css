@@ -1,0 +1,87 @@
+.progress-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.step-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: all 0.3s;
+  position: relative;
+  z-index: 1;
+}
+
+.progress-step.upcoming .step-circle {
+  background: var(--gray-200);
+  color: var(--gray-500);
+  border: 2px solid var(--gray-300);
+}
+
+.progress-step.active .step-circle {
+  background: var(--red);
+  color: white;
+  border: 2px solid var(--red);
+  box-shadow: 0 0 0 4px rgba(204,0,0,0.15);
+}
+
+.progress-step.completed .step-circle {
+  background: var(--black);
+  color: white;
+  border: 2px solid var(--black);
+}
+
+.step-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 0.3s;
+}
+
+.progress-step.upcoming .step-label { color: var(--gray-400); }
+.progress-step.active .step-label { color: var(--red); font-weight: 700; }
+.progress-step.completed .step-label { color: var(--black); }
+
+.progress-connector {
+  flex: 1;
+  height: 2px;
+  background: var(--gray-200);
+  max-width: 100px;
+  min-width: 30px;
+  margin-bottom: 22px;
+  transition: background 0.3s;
+}
+
+.progress-connector.filled {
+  background: var(--black);
+}
+
+@media (max-width: 600px) {
+  .step-label {
+    font-size: 0.6rem;
+  }
+  .step-circle {
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
+  }
+  .progress-connector {
+    min-width: 15px;
+    max-width: 40px;
+  }
+}
