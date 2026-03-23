@@ -1,10 +1,11 @@
 import React from 'react';
-import { Outlet, useLocation, useParams } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import ProgressBar from './ProgressBar';
 import './FormLayout.css';
 
 export default function FormLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Determine current step from path
   const path = location.pathname;
@@ -25,6 +26,9 @@ export default function FormLayout() {
             </div>
             <div className="header-right">
               <span className="portal-label">Supplier Compliance Portal</span>
+              <button className="admin-login-btn" onClick={() => navigate('/admin/login')}>
+                Admin Login
+              </button>
             </div>
           </div>
         </div>
