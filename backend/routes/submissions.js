@@ -6,6 +6,7 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../database');
 const { sendConfirmationEmail, sendTeamNotificationEmail } = require('../email');
+const sharepoint = require('../sharepoint');
 
 // Dynamic multer storage based on submission id
 const storage = multer.diskStorage({
@@ -309,6 +310,11 @@ router.patch('/:id/step4', signatureUpload.single('signature_image'), async (req
     } catch (emailErr) {
       console.error('Email error (non-fatal):', emailErr.message);
     }
+
+    // Sync to SharePoint (non-fatal — runs in background)
+    sharepoint.syncSubmission(updatedSubmission, products).catch(err =>
+      console.error('SharePoint sync error (non-fatal):', err.message)
+    );
 
     res.json({
       success: true,
