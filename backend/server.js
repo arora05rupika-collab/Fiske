@@ -2,9 +2,35 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Security headers
+app.use(helmet());
+
+// Rate limiters
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  message: { error: 'Too many requests, please try again later.' }
+});
+
+const submissionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20,
+  message: { error: 'Too many submissions from this IP, please try again later.' }
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: { error: 'Too many login attempts, please try again later.' }
+});
+
+app.use(generalLimiter);
 
 // Middleware
 app.use(cors({
@@ -20,8 +46,8 @@ fs.mkdirSync(uploadsDir, { recursive: true });
 app.use('/uploads', express.static(uploadsDir));
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/submissions', require('./routes/submissions'));
+app.use('/api/auth', loginLimiter, require('./routes/auth'));
+app.use('/api/submissions', submissionLimiter, require('./routes/submissions'));
 app.use('/api/admin', require('./routes/admin'));
 
 // Health check
