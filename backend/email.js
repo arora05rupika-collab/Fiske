@@ -63,7 +63,7 @@ async function sendConfirmationEmail(submission, products) {
 
           <p style="margin-top: 30px;">Best regards,<br>
           <strong>Lubriplate Quality Team</strong><br>
-          quality@lubriplate.com</p>
+          rarora@lubriplate.com</p>
         </div>
         <div style="background: #1A1A1A; padding: 15px; text-align: center;">
           <p style="color: #888; margin: 0; font-size: 12px;">© ${new Date().getFullYear()} Lubriplate Lubricants Company. All rights reserved.</p>
@@ -84,7 +84,7 @@ async function sendTeamNotificationEmail(submission, products) {
 
   const info = await transporter.sendMail({
     from: '"Lubriplate Compliance Portal" <noreply@lubriplate.com>',
-    to: 'quality@lubriplate.com',
+    to: 'rarora@lubriplate.com',
     subject: `New Compliance Submission — ${submission.company_name} (${submission.reference_number})`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

@@ -19,8 +19,7 @@ export default function AdminLayout() {
         <div className="admin-header-inner">
           <div className="admin-header-left">
             <Link to="/admin" className="admin-logo">
-              <span className="admin-logo-text">LUBRIPLATE</span>
-              <span className="admin-logo-sub">Quality Portal</span>
+              <img src="/lubriplate-logo.svg" alt="Lubriplate" className="admin-logo-img" />
             </Link>
           </div>
           <nav className="admin-nav">

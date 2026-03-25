@@ -138,7 +138,7 @@ export default function Step1() {
   return (
     <div className="step-container">
       <div className="step-header">
-        <div className="step-number">Step 1 of 4</div>
+        <div className="step-number">Step 1 of 5</div>
         <h1>Company Information</h1>
         <p>Please provide your company details and the products you'd like to submit for compliance review.</p>
       </div>

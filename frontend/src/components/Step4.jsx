@@ -130,7 +130,7 @@ export default function Step4() {
   return (
     <div className="step-container">
       <div className="step-header">
-        <div className="step-number">Step 4 of 4</div>
+        <div className="step-number">Step 5 of 5</div>
         <h1>Declaration & Signature</h1>
         <p>Please read the declaration carefully, then sign and submit your compliance information.</p>
       </div>

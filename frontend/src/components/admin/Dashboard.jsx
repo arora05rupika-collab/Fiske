@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAdminSubmissions, exportSubmissions } from '../../api';
+import { getAdminSubmissions, exportSubmissions, deleteSubmission, archiveSubmission } from '../../api';
 import './Admin.css';
 
 const STATUS_COLORS = {
   'Submitted': 'badge-submitted',
   'Under Review': 'badge-review',
   'Approved': 'badge-approved',
-  'Rejected': 'badge-rejected'
+  'Rejected': 'badge-rejected',
+  'Archived': 'badge-archived'
 };
 
 function StatCard({ label, value, color }) {
@@ -86,6 +87,37 @@ export default function Dashboard() {
     review: submissions.filter(s => s.status === 'Under Review').length,
     approved: submissions.filter(s => s.status === 'Approved').length,
     rejected: submissions.filter(s => s.status === 'Rejected').length,
+  };
+
+  const handleDelete = async (e, id, companyName) => {
+    e.stopPropagation();
+    if (!window.confirm(`Permanently delete submission from "${companyName}"? This cannot be undone.`)) return;
+    try {
+      await deleteSubmission(id);
+      setSubmissions(prev => prev.filter(s => s.id !== id));
+    } catch (err) {
+      alert('Failed to delete submission.');
+    }
+  };
+
+  const handleArchive = async (e, id) => {
+    e.stopPropagation();
+    try {
+      await archiveSubmission(id, true);
+      setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: 'Archived' } : s));
+    } catch (err) {
+      alert('Failed to archive submission.');
+    }
+  };
+
+  const handleRestore = async (e, id) => {
+    e.stopPropagation();
+    try {
+      await archiveSubmission(id, false);
+      setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: 'Submitted' } : s));
+    } catch (err) {
+      alert('Failed to restore submission.');
+    }
   };
 
   const hasFilters = Object.values(filters).some(v => v);
@@ -208,7 +240,7 @@ export default function Dashboard() {
                   <th>Products</th>
                   <th>Submitted</th>
                   <th>Status</th>
-                  <th></th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -252,9 +284,45 @@ export default function Dashboard() {
                       </span>
                     </td>
                     <td>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2">
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
+                      <div className="row-actions" onClick={e => e.stopPropagation()}>
+                        {s.status === 'Archived' ? (
+                          <button
+                            className="action-btn action-restore"
+                            title="Restore"
+                            onClick={e => handleRestore(e, s.id)}
+                          >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="1 4 1 10 7 10" />
+                              <path d="M3.51 15a9 9 0 1 0 .49-3" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <button
+                            className="action-btn action-archive"
+                            title="Archive (Recycle)"
+                            onClick={e => handleArchive(e, s.id)}
+                          >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              <line x1="10" y1="11" x2="10" y2="17" />
+                              <line x1="14" y1="11" x2="14" y2="17" />
+                            </svg>
+                          </button>
+                        )}
+                        <button
+                          className="action-btn action-delete"
+                          title="Delete permanently"
+                          onClick={e => handleDelete(e, s.id, s.company_name)}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="15" y1="9" x2="9" y2="15" />
+                            <line x1="9" y1="9" x2="15" y2="15" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

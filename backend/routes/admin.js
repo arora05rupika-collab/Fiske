@@ -93,6 +93,33 @@ router.patch('/submissions/:id/status', (req, res) => {
   }
 });
 
+// DELETE submission permanently
+router.delete('/submissions/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const result = db.prepare('DELETE FROM SupplierSubmissions WHERE id = ?').run(req.params.id);
+    if (result.changes === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete submission error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH archive/restore submission (soft delete)
+router.patch('/submissions/:id/archive', (req, res) => {
+  try {
+    const db = getDb();
+    const { archived } = req.body;
+    const result = db.prepare('UPDATE SupplierSubmissions SET status = ? WHERE id = ?')
+      .run(archived ? 'Archived' : 'Submitted', req.params.id);
+    if (result.changes === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ success: true, status: archived ? 'Archived' : 'Submitted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET export to CSV/Excel
 router.get('/export', (req, res) => {
   try {

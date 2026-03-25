@@ -32,6 +32,7 @@ export const updateStep2 = (id, formData) => api.patch(`/submissions/${id}/step2
   headers: { 'Content-Type': 'multipart/form-data' }
 });
 export const updateStep3 = (id, data) => api.patch(`/submissions/${id}/step3`, data);
+export const updateStep4Compliance = (id, data) => api.patch(`/submissions/${id}/step4-compliance`, data);
 export const updateStep4 = (id, formData) => api.patch(`/submissions/${id}/step4`, formData, {
   headers: { 'Content-Type': 'multipart/form-data' }
 });
@@ -42,6 +43,8 @@ export const adminLogin = (credentials) => api.post('/auth/login', credentials);
 export const getAdminSubmissions = (params) => api.get('/admin/submissions', { params });
 export const getAdminSubmission = (id) => api.get(`/admin/submissions/${id}`);
 export const updateSubmissionStatus = (id, status) => api.patch(`/admin/submissions/${id}/status`, { status });
+export const deleteSubmission = (id) => api.delete(`/admin/submissions/${id}`);
+export const archiveSubmission = (id, archived) => api.patch(`/admin/submissions/${id}/archive`, { archived });
 export const exportSubmissions = (params) => api.get('/admin/export', {
   params,
   responseType: 'blob'

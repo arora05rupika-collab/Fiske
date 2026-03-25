@@ -5,7 +5,8 @@ const STEPS = [
   { number: 1, label: 'Company Info' },
   { number: 2, label: 'Compliance & Certs' },
   { number: 3, label: 'Allergens' },
-  { number: 4, label: 'Declaration' }
+  { number: 4, label: 'EU Compliance' },
+  { number: 5, label: 'Declaration' }
 ];
 
 export default function ProgressBar({ currentStep }) {

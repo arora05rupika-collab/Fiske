@@ -13,8 +13,7 @@ export default function Confirmation() {
     <div className="confirmation-page">
       <header className="conf-header">
         <div className="conf-logo">
-          <span className="conf-logo-text">LUBRIPLATE</span>
-          <span className="conf-logo-sub">Lubricants Company</span>
+          <img src="/lubriplate-logo.svg" alt="Lubriplate" className="conf-logo-img" />
         </div>
       </header>
 
@@ -69,7 +68,7 @@ export default function Confirmation() {
 
       <footer className="conf-footer">
         <p>© {new Date().getFullYear()} Lubriplate Lubricants Company. All rights reserved.</p>
-        <p>Questions? Contact <a href="mailto:quality@lubriplate.com">quality@lubriplate.com</a></p>
+        <p>Questions? Contact <a href="mailto:rarora@lubriplate.com">rarora@lubriplate.com</a></p>
       </footer>
     </div>
   );

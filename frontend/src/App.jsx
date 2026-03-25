@@ -4,7 +4,8 @@ import FormLayout from './components/FormLayout';
 import Step1 from './components/Step1';
 import Step2 from './components/Step2';
 import Step3 from './components/Step3';
-import Step4 from './components/Step4';
+import Step4Compliance from './components/Step4Compliance';
+import Step5 from './components/Step4';
 import Confirmation from './components/Confirmation';
 import AdminLogin from './components/admin/Login';
 import AdminDashboard from './components/admin/Dashboard';
@@ -26,7 +27,8 @@ export default function App() {
           <Route path="step1" element={<Step1 />} />
           <Route path="step2/:id" element={<Step2 />} />
           <Route path="step3/:id" element={<Step3 />} />
-          <Route path="step4/:id" element={<Step4 />} />
+          <Route path="step4/:id" element={<Step4Compliance />} />
+          <Route path="step5/:id" element={<Step5 />} />
         </Route>
         <Route path="/confirmation/:id" element={<Confirmation />} />
 

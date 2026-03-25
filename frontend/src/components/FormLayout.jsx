@@ -13,6 +13,7 @@ export default function FormLayout() {
   if (path.includes('step2')) currentStep = 2;
   else if (path.includes('step3')) currentStep = 3;
   else if (path.includes('step4')) currentStep = 4;
+  else if (path.includes('step5')) currentStep = 5;
 
   return (
     <div className="form-layout">
@@ -21,8 +22,7 @@ export default function FormLayout() {
         <div className="container">
           <div className="header-content">
             <div className="logo">
-              <span className="logo-text">LUBRIPLATE</span>
-              <span className="logo-sub">Lubricants Company</span>
+              <img src="/lubriplate-logo.svg" alt="Lubriplate" className="logo-img" />
             </div>
             <div className="header-right">
               <span className="portal-label">Supplier Compliance Portal</span>
@@ -52,7 +52,7 @@ export default function FormLayout() {
       <footer className="form-footer">
         <div className="container">
           <p>© {new Date().getFullYear()} Lubriplate Lubricants Company. All rights reserved.</p>
-          <p>For assistance, contact: <a href="mailto:quality@lubriplate.com">quality@lubriplate.com</a></p>
+          <p>For assistance, contact: <a href="mailto:rarora@lubriplate.com">rarora@lubriplate.com</a></p>
         </div>
       </footer>
     </div>
