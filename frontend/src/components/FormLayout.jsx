@@ -13,7 +13,6 @@ export default function FormLayout() {
   if (path.includes('step2')) currentStep = 2;
   else if (path.includes('step3')) currentStep = 3;
   else if (path.includes('step4')) currentStep = 4;
-  else if (path.includes('step5')) currentStep = 5;
 
   return (
     <div className="form-layout">
@@ -22,7 +21,8 @@ export default function FormLayout() {
         <div className="container">
           <div className="header-content">
             <div className="logo">
-              <img src="/lubriplate-logo.svg" alt="Lubriplate" className="logo-img" />
+              <span className="logo-text">LUBRIPLATE</span>
+              <span className="logo-sub">Lubricants Company</span>
             </div>
             <div className="header-right">
               <span className="portal-label">Supplier Compliance Portal</span>

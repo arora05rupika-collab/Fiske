@@ -30,7 +30,8 @@ export default function AdminLogin() {
     <div className="admin-login-page">
       <div className="admin-login-box">
         <div className="admin-login-logo">
-          <img src="/lubriplate-logo.svg" alt="Lubriplate" className="admin-login-logo-img" />
+          <span className="admin-logo-text">LUBRIPLATE</span>
+          <span className="admin-logo-sub">Lubricants Company</span>
         </div>
 
         <div className="admin-login-card">

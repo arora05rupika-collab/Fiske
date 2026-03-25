@@ -21,16 +21,6 @@
   text-align: center;
 }
 
-.admin-login-logo-img {
-  height: 80px;
-  width: auto;
-}
-
-.admin-logo-img {
-  height: 40px;
-  width: auto;
-}
-
 .admin-logo-text {
   display: block;
   font-size: 2rem;
@@ -365,53 +355,6 @@
 .chip-food { background: #fef3c7; color: #92400e; }
 .chip-industrial { background: #e0f2fe; color: #0c4a6e; }
 
-/* Row action buttons */
-.row-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.action-btn {
-  background: none;
-  border: 1px solid var(--gray-200);
-  border-radius: 6px;
-  padding: 5px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-  color: var(--gray-400);
-}
-
-.action-btn:hover {
-  background: var(--gray-50);
-}
-
-.action-archive:hover {
-  color: #d97706;
-  border-color: #f59e0b;
-  background: #fffbeb;
-}
-
-.action-delete:hover {
-  color: var(--red);
-  border-color: var(--red);
-  background: #fef2f2;
-}
-
-.action-restore:hover {
-  color: #16a34a;
-  border-color: #16a34a;
-  background: #f0fdf4;
-}
-
-.badge-archived {
-  background: #f3f4f6;
-  color: #6b7280;
-}
-
 /* Submission Detail */
 .admin-detail {
   max-width: 1100px;
@@ -452,12 +395,6 @@
 }
 
 .status-change { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
-
-.detail-actions-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
-}
 
 .status-select {
   padding: 6px 10px;

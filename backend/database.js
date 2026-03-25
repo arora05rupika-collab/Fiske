@@ -42,7 +42,6 @@ function initSchema() {
       submission_date TEXT,
       status TEXT DEFAULT 'Submitted',
       reference_number TEXT,
-      eu_compliance_data TEXT,
       step_completed INTEGER DEFAULT 1,
       created_at TEXT DEFAULT (datetime('now'))
     );

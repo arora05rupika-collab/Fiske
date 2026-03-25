@@ -113,7 +113,7 @@ export default function Step3() {
         const prods = (res.data.products || []).filter(p => p.product_type === 'Food Grade');
 
         if (prods.length === 0) {
-          // No food grade, skip to EU Compliance (step 4)
+          // No food grade, skip to step 4
           navigate(`/form/step4/${id}`, { replace: true });
           return;
         }
@@ -207,7 +207,7 @@ export default function Step3() {
         wheat_starch_packaging: wheatStarch
       });
 
-      navigate(`/form/step4/${id}`);  // Go to EU Compliance
+      navigate(`/form/step4/${id}`);
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to save. Please try again.');
     } finally {
@@ -227,7 +227,7 @@ export default function Step3() {
   return (
     <div className="step-container">
       <div className="step-header">
-        <div className="step-number">Step 3 of 5</div>
+        <div className="step-number">Step 3 of 4</div>
         <h1>Allergen Declaration</h1>
         <p>
           Complete the allergen table for each Food Grade product. Indicate whether each allergen is
@@ -315,7 +315,7 @@ export default function Step3() {
             ← Back
           </button>
           <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
-            {loading ? <><span className="spinner" /> Saving...</> : 'Continue to EU Compliance →'}
+            {loading ? <><span className="spinner" /> Saving...</> : 'Continue to Declaration →'}
           </button>
         </div>
       </form>

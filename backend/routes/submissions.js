@@ -251,33 +251,7 @@ router.patch('/:id/step3', (req, res) => {
   }
 });
 
-// Step 4: EU Compliance declarations (RoHS, SVHC, PFAS, FMD)
-router.patch('/:id/step4-compliance', (req, res) => {
-  try {
-    const db = getDb();
-    const { id } = req.params;
-    const { rohs_data, svhc_data, pfas_data, fmd_data } = req.body;
-
-    const submission = db.prepare('SELECT * FROM SupplierSubmissions WHERE id = ?').get(id);
-    if (!submission) return res.status(404).json({ error: 'Submission not found' });
-
-    const complianceData = JSON.stringify({ rohs_data, svhc_data, pfas_data, fmd_data });
-
-    db.prepare(`
-      UPDATE SupplierSubmissions SET
-        eu_compliance_data = ?,
-        step_completed = 4
-      WHERE id = ?
-    `).run(complianceData, id);
-
-    res.json({ success: true, id });
-  } catch (err) {
-    console.error('Step 4 compliance error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Step 5: Final submission with signature
+// Step 4: Final submission with signature
 const signatureUpload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
@@ -322,7 +296,7 @@ router.patch('/:id/step4', signatureUpload.single('signature_image'), async (req
         signature_image_path = COALESCE(?, signature_image_path),
         submission_date = ?,
         status = 'Submitted',
-        step_completed = 5
+        step_completed = 4
       WHERE id = ?
     `).run(signatory_name, signatory_title, signaturePath, submissionDate, id);
 
@@ -365,13 +339,7 @@ router.get('/:id', (req, res) => {
     const products = db.prepare('SELECT * FROM SupplierProducts WHERE submission_id = ? ORDER BY sort_order').all(req.params.id);
     const allergens = db.prepare('SELECT * FROM SupplierAllergens WHERE submission_id = ?').all(req.params.id);
 
-    // Parse EU compliance data
-    let euCompliance = {};
-    if (submission.eu_compliance_data) {
-      try { euCompliance = JSON.parse(submission.eu_compliance_data); } catch (e) { /* ignore */ }
-    }
-
-    res.json({ ...submission, ...euCompliance, products, allergens });
+    res.json({ ...submission, products, allergens });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

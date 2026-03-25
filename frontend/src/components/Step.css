@@ -334,45 +334,6 @@ input.error, select.error, textarea.error {
   color: var(--gray-600);
 }
 
-/* Compliance reference table */
-.compliance-ref-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-
-.compliance-ref-table th {
-  background: var(--gray-100);
-  padding: 8px 12px;
-  text-align: left;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--gray-600);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border: 1px solid var(--gray-200);
-}
-
-.compliance-ref-table td {
-  padding: 6px 12px;
-  border: 1px solid var(--gray-200);
-}
-
-.compliance-ref-table tr:nth-child(even) td {
-  background: var(--gray-50);
-}
-
-.compliance-doc-ref {
-  font-size: 0.78rem;
-  color: var(--gray-500);
-  margin-bottom: 12px;
-  font-style: italic;
-}
-
-.compliance-product-type-badge.industrial {
-  background: #3b82f6;
-}
-
 /* Signature pad */
 .signature-area {
   border: 2px solid var(--gray-300);

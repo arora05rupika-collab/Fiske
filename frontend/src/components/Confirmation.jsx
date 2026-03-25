@@ -13,7 +13,8 @@ export default function Confirmation() {
     <div className="confirmation-page">
       <header className="conf-header">
         <div className="conf-logo">
-          <img src="/lubriplate-logo.svg" alt="Lubriplate" className="conf-logo-img" />
+          <span className="conf-logo-text">LUBRIPLATE</span>
+          <span className="conf-logo-sub">Lubricants Company</span>
         </div>
       </header>
 

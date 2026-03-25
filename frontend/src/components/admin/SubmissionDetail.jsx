@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getAdminSubmission, updateSubmissionStatus, deleteSubmission, archiveSubmission } from '../../api';
+import { getAdminSubmission, updateSubmissionStatus } from '../../api';
 import './Admin.css';
 
 const STATUS_COLORS = {
   'Submitted': 'badge-submitted',
   'Under Review': 'badge-review',
   'Approved': 'badge-approved',
-  'Rejected': 'badge-rejected',
-  'Archived': 'badge-archived'
+  'Rejected': 'badge-rejected'
 };
 
 const ALLERGEN_LABELS = {
@@ -84,34 +83,6 @@ export default function SubmissionDetail() {
     }
     load();
   }, [id]);
-
-  const handleDelete = async () => {
-    if (!window.confirm(`Permanently delete this submission from "${submission?.company_name}"? This cannot be undone.`)) return;
-    try {
-      await deleteSubmission(id);
-      navigate('/admin');
-    } catch (err) {
-      alert('Failed to delete submission.');
-    }
-  };
-
-  const handleArchive = async () => {
-    try {
-      await archiveSubmission(id, true);
-      setSubmission(prev => ({ ...prev, status: 'Archived' }));
-    } catch (err) {
-      alert('Failed to archive submission.');
-    }
-  };
-
-  const handleRestore = async () => {
-    try {
-      await archiveSubmission(id, false);
-      setSubmission(prev => ({ ...prev, status: 'Submitted' }));
-    } catch (err) {
-      alert('Failed to restore submission.');
-    }
-  };
 
   const handleStatusChange = async (newStatus) => {
     setUpdatingStatus(true);
@@ -197,34 +168,6 @@ export default function SubmissionDetail() {
                 <option>Approved</option>
                 <option>Rejected</option>
               </select>
-            </div>
-            <div className="detail-actions-row">
-              {submission.status === 'Archived' ? (
-                <button className="btn btn-outline btn-sm" onClick={handleRestore} title="Restore from archive">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="1 4 1 10 7 10" />
-                    <path d="M3.51 15a9 9 0 1 0 .49-3" />
-                  </svg>
-                  Restore
-                </button>
-              ) : (
-                <button className="btn btn-outline btn-sm" onClick={handleArchive} title="Archive (Recycle Bin)" style={{ color: '#d97706', borderColor: '#f59e0b' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                  Archive
-                </button>
-              )}
-              <button className="btn btn-outline btn-sm" onClick={handleDelete} title="Delete permanently" style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="15" y1="9" x2="9" y2="15" />
-                  <line x1="9" y1="9" x2="15" y2="15" />
-                </svg>
-                Delete
-              </button>
             </div>
           </div>
         </div>
@@ -326,89 +269,6 @@ export default function SubmissionDetail() {
                   )}
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* EU Compliance */}
-          {submission.rohs_data && (
-            <div className="detail-section">
-              <h3 className="detail-section-title">
-                <span>🇪🇺</span> EU Compliance Declarations
-              </h3>
-
-              {/* RoHS */}
-              <h4 style={{ fontSize: '0.9rem', marginBottom: '10px' }}>EU RoHS Declaration</h4>
-              {(submission.products || []).map(product => {
-                const rohs = submission.rohs_data?.[product.id];
-                if (!rohs) return null;
-                return (
-                  <div key={`rohs-${product.id}`} style={{ marginBottom: '12px', padding: '10px', background: 'var(--gray-50)', borderRadius: '6px' }}>
-                    <strong style={{ fontSize: '0.85rem' }}>{product.product_name}</strong>
-                    <div style={{ fontSize: '0.85rem', marginTop: '4px' }}>
-                      Status: <span style={{ fontWeight: 600, color: rohs.status === 'Compliant' ? 'var(--green)' : rohs.status === 'Not Compliant' ? 'var(--red)' : 'var(--gray-700)' }}>{rohs.status}</span>
-                      {rohs.exemption_ref && <span> (Exemption: {rohs.exemption_ref})</span>}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* SVHC */}
-              {submission.svhc_data && (
-                <>
-                  <h4 style={{ fontSize: '0.9rem', marginBottom: '10px', marginTop: '16px' }}>EU SVHC (REACH)</h4>
-                  {(submission.products || []).map(product => {
-                    const svhc = submission.svhc_data?.[product.id];
-                    if (!svhc) return null;
-                    return (
-                      <div key={`svhc-${product.id}`} style={{ marginBottom: '12px', padding: '10px', background: 'var(--gray-50)', borderRadius: '6px' }}>
-                        <strong style={{ fontSize: '0.85rem' }}>{product.product_name}</strong>
-                        <div style={{ fontSize: '0.85rem', marginTop: '4px' }}>
-                          Status: <span style={{ fontWeight: 600, color: svhc.status === 'Do Not Contain' ? 'var(--green)' : 'var(--red)' }}>{svhc.status}</span>
-                          {svhc.substance_name && <div>Substance: {svhc.substance_name} (CAS: {svhc.cas_number})</div>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </>
-              )}
-
-              {/* PFAS */}
-              {submission.pfas_data && (
-                <>
-                  <h4 style={{ fontSize: '0.9rem', marginBottom: '10px', marginTop: '16px' }}>PFAS Declaration</h4>
-                  {(submission.products || []).map(product => {
-                    const pfas = submission.pfas_data?.[product.id];
-                    if (!pfas) return null;
-                    return (
-                      <div key={`pfas-${product.id}`} style={{ marginBottom: '12px', padding: '10px', background: 'var(--gray-50)', borderRadius: '6px' }}>
-                        <strong style={{ fontSize: '0.85rem' }}>{product.product_name}</strong>
-                        <div style={{ fontSize: '0.85rem', marginTop: '4px' }}>
-                          Contains PFAS: <span style={{ fontWeight: 600, color: pfas.contains_pfas === 'No' ? 'var(--green)' : 'var(--red)' }}>{pfas.contains_pfas}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </>
-              )}
-
-              {/* FMD */}
-              {submission.fmd_data && (
-                <>
-                  <h4 style={{ fontSize: '0.9rem', marginBottom: '10px', marginTop: '16px' }}>Full Material Declaration (FMD)</h4>
-                  {(submission.products || []).map(product => {
-                    const fmd = submission.fmd_data?.[product.id];
-                    if (!fmd) return null;
-                    return (
-                      <div key={`fmd-${product.id}`} style={{ marginBottom: '12px', padding: '10px', background: 'var(--gray-50)', borderRadius: '6px' }}>
-                        <strong style={{ fontSize: '0.85rem' }}>{product.product_name}</strong>
-                        <div style={{ fontSize: '0.85rem', marginTop: '4px' }}>
-                          FMD Document: {fmd.fmd_doc || 'N/A'}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </>
-              )}
             </div>
           )}
 

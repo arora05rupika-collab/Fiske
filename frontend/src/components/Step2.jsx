@@ -201,7 +201,7 @@ export default function Step2() {
   return (
     <div className="step-container">
       <div className="step-header">
-        <div className="step-number">Step 2 of {hasFoodGrade ? '5' : '5 (Step 3 skipped — no Food Grade products)'}</div>
+        <div className="step-number">Step 2 of {hasFoodGrade ? '4' : '3 (Step 3 skipped — no Food Grade products)'}</div>
         <h1>Compliance & Certifications</h1>
         <p>Provide compliance information and upload required certification documents for each product.</p>
       </div>
