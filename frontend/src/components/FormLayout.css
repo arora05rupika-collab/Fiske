@@ -1,0 +1,99 @@
+.form-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f1f1f1;
+}
+
+/* Header */
+.form-header {
+  background: var(--black);
+  padding: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+}
+
+.logo-img {
+  height: 48px;
+  width: auto;
+}
+
+.portal-label {
+  font-size: 0.8rem;
+  color: var(--gray-400);
+  letter-spacing: 0.05em;
+}
+
+/* Progress section */
+.progress-section {
+  background: var(--white);
+  border-bottom: 1px solid var(--gray-200);
+  padding: 20px 0;
+}
+
+/* Main */
+.form-main {
+  flex: 1;
+  padding: 32px 0;
+}
+
+/* Footer */
+.form-footer {
+  background: var(--black);
+  padding: 20px 0;
+  text-align: center;
+}
+
+.form-footer p {
+  color: var(--gray-500);
+  font-size: 0.8rem;
+  margin: 4px 0;
+}
+
+.form-footer a {
+  color: var(--red);
+  text-decoration: none;
+}
+
+.form-footer a:hover { text-decoration: underline; }
+
+@media (max-width: 600px) {
+  .portal-label { display: none; }
+  .logo-text { font-size: 1.2rem; }
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.admin-login-btn {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.4);
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.admin-login-btn:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: #fff;
+}

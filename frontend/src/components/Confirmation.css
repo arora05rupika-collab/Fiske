@@ -1,0 +1,155 @@
+.confirmation-page {
+  min-height: 100vh;
+  background: #f1f1f1;
+  display: flex;
+  flex-direction: column;
+}
+
+.conf-header {
+  background: var(--black);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.conf-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.conf-logo-img {
+  height: 52px;
+  width: auto;
+}
+
+.conf-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.conf-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 48px 40px;
+  max-width: 560px;
+  width: 100%;
+  text-align: center;
+}
+
+.conf-checkmark {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  animation: checkScale 0.5s ease-out;
+}
+
+@keyframes checkScale {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.conf-title {
+  font-size: 2rem;
+  color: var(--black);
+  margin-bottom: 12px;
+}
+
+.conf-subtitle {
+  font-size: 1.05rem;
+  color: var(--gray-600);
+  margin-bottom: 28px;
+}
+
+.conf-details {
+  background: var(--gray-50);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.conf-ref {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.conf-ref-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gray-500);
+  font-weight: 600;
+}
+
+.conf-ref-value {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--black);
+  letter-spacing: 0.05em;
+  font-family: monospace;
+}
+
+.conf-email-note {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+}
+
+.conf-next {
+  text-align: left;
+  margin-bottom: 28px;
+  padding: 20px;
+  background: var(--blue-light);
+  border-radius: var(--radius);
+  border: 1px solid #bfdbfe;
+}
+
+.conf-next h3 {
+  font-size: 0.9rem;
+  color: #1e40af;
+  margin-bottom: 10px;
+}
+
+.conf-next ol {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.conf-next li {
+  font-size: 0.875rem;
+  color: #1e40af;
+}
+
+.conf-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.conf-footer {
+  background: var(--black);
+  padding: 16px;
+  text-align: center;
+}
+
+.conf-footer p {
+  color: var(--gray-500);
+  font-size: 0.8rem;
+  margin: 4px 0;
+}
+
+.conf-footer a {
+  color: var(--red);
+  text-decoration: none;
+}
