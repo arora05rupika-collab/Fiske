@@ -8,6 +8,7 @@ const { getDb } = require('../database');
 const { sendConfirmationEmail, sendTeamNotificationEmail } = require('../email');
 const sharepoint = require('../sharepoint');
 const { fromFile } = require('file-type');
+const { scanFile } = require('../virustotal');
 
 // Magic bytes map: what the actual file content should start with per extension
 const ALLOWED_MIME_TYPES = {
@@ -174,18 +175,35 @@ router.patch('/:id/step2', step2Upload, async (req, res) => {
     const submission = db.prepare('SELECT * FROM SupplierSubmissions WHERE id = ?').get(id);
     if (!submission) return res.status(404).json({ error: 'Submission not found' });
 
-    // Magic bytes validation: verify every uploaded file's actual content
+    // ── Security Layer 1: Magic bytes ──────────────────────────────────────────
+    // Verify every uploaded file's actual content matches its claimed extension
     const allUploadedFiles = Object.values(files).flat();
     for (const file of allUploadedFiles) {
       const ext = path.extname(file.originalname).toLowerCase();
       const isValid = await validateFileContent(file.path, ext);
       if (!isValid) {
-        // Delete the dangerous file and all other uploaded files in this request
         allUploadedFiles.forEach(f => safeUnlink(f.path));
         return res.status(400).json({
           error: `File "${file.originalname}" failed security validation. The file content does not match its extension. Please upload a genuine ${ext.toUpperCase()} file.`
         });
       }
+    }
+
+    // ── Security Layer 2: VirusTotal (70+ antivirus engines) ───────────────────
+    // Scans each file against VirusTotal's database. Skipped gracefully if
+    // VIRUSTOTAL_API_KEY is not set or if the API is unreachable.
+    for (const file of allUploadedFiles) {
+      const vtResult = await scanFile(file.path);
+
+      if (vtResult.safe === false) {
+        // Threat detected — delete all uploaded files immediately
+        allUploadedFiles.forEach(f => safeUnlink(f.path));
+        return res.status(400).json({
+          error: `File "${file.originalname}" was flagged as potentially malicious by ${vtResult.detections} security engine(s) (${vtResult.engines?.slice(0, 3).join(', ')}${vtResult.engines?.length > 3 ? '...' : ''}). Please contact Lubriplate if you believe this is a false positive.`
+        });
+      }
+      // vtResult.skipped === true means API key not set or VT unreachable — we
+      // still allow the upload since magic bytes already passed
     }
 
     // File path helper
