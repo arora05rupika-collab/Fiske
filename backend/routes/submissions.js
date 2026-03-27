@@ -7,6 +7,53 @@ const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../database');
 const { sendConfirmationEmail, sendTeamNotificationEmail } = require('../email');
 const sharepoint = require('../sharepoint');
+const { fromFile } = require('file-type');
+
+// Magic bytes map: what the actual file content should start with per extension
+const ALLOWED_MIME_TYPES = {
+  '.pdf':  ['application/pdf'],
+  '.jpg':  ['image/jpeg'],
+  '.jpeg': ['image/jpeg'],
+  '.png':  ['image/png'],
+  '.doc':  ['application/msword'],
+  '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+};
+
+// Validate file content matches its extension (magic bytes check)
+async function validateFileContent(filePath, declaredExt) {
+  const type = await fromFile(filePath);
+
+  // fromFile returns null for DOC/DOCX sometimes (they're ZIP-based) — allow those through
+  // but still reject if we detect something dangerous
+  if (!type) {
+    // Could not detect type — only allow doc/docx in this case
+    if (['.doc', '.docx'].includes(declaredExt)) return true;
+    return false;
+  }
+
+  const allowedMimes = ALLOWED_MIME_TYPES[declaredExt] || [];
+
+  // Explicitly block dangerous types regardless of extension
+  const dangerous = [
+    'application/x-msdownload', // .exe
+    'application/x-executable',
+    'application/x-sh',          // shell script
+    'application/x-bat',
+    'application/javascript',
+    'text/javascript',
+    'application/x-php',
+    'application/x-python',
+  ];
+
+  if (dangerous.includes(type.mime)) return false;
+
+  return allowedMimes.includes(type.mime);
+}
+
+// Delete a file safely (non-fatal)
+function safeUnlink(filePath) {
+  try { fs.unlinkSync(filePath); } catch (e) { /* ignore */ }
+}
 
 // Dynamic multer storage based on submission id
 const storage = multer.diskStorage({
@@ -117,7 +164,7 @@ const step2Upload = upload.fields([
   { name: 'nsf_cert_file_8', maxCount: 1 }, { name: 'nsf_cert_file_9', maxCount: 1 },
 ]);
 
-router.patch('/:id/step2', step2Upload, (req, res) => {
+router.patch('/:id/step2', step2Upload, async (req, res) => {
   try {
     const db = getDb();
     const { id } = req.params;
@@ -126,6 +173,20 @@ router.patch('/:id/step2', step2Upload, (req, res) => {
 
     const submission = db.prepare('SELECT * FROM SupplierSubmissions WHERE id = ?').get(id);
     if (!submission) return res.status(404).json({ error: 'Submission not found' });
+
+    // Magic bytes validation: verify every uploaded file's actual content
+    const allUploadedFiles = Object.values(files).flat();
+    for (const file of allUploadedFiles) {
+      const ext = path.extname(file.originalname).toLowerCase();
+      const isValid = await validateFileContent(file.path, ext);
+      if (!isValid) {
+        // Delete the dangerous file and all other uploaded files in this request
+        allUploadedFiles.forEach(f => safeUnlink(f.path));
+        return res.status(400).json({
+          error: `File "${file.originalname}" failed security validation. The file content does not match its extension. Please upload a genuine ${ext.toUpperCase()} file.`
+        });
+      }
+    }
 
     // File path helper
     const getFilePath = (fileKey) => {

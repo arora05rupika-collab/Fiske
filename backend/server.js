@@ -40,10 +40,40 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Serve uploaded files
+// Serve uploaded files — authenticated download only (not public)
 const uploadsDir = path.join(__dirname, 'uploads');
 fs.mkdirSync(uploadsDir, { recursive: true });
-app.use('/uploads', express.static(uploadsDir));
+
+const { authenticateToken } = require('./middleware/auth');
+
+app.get('/uploads/*', authenticateToken, (req, res) => {
+  // Decode and sanitize the requested path
+  const requestedPath = decodeURIComponent(req.params[0] || '');
+
+  // Block path traversal attacks (e.g. ../../etc/passwd)
+  if (requestedPath.includes('..') || requestedPath.includes('\0')) {
+    return res.status(400).json({ error: 'Invalid path' });
+  }
+
+  const filePath = path.join(uploadsDir, requestedPath);
+
+  // Ensure the resolved path stays inside uploads directory
+  if (!filePath.startsWith(uploadsDir + path.sep)) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  // Force download — never execute in browser, even if file is HTML/JS/etc.
+  res.setHeader('Content-Disposition', `attachment; filename="${path.basename(filePath)}"`);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'none'");
+  res.setHeader('Cache-Control', 'no-store');
+
+  res.sendFile(filePath);
+});
 
 // Routes
 app.use('/api/auth', loginLimiter, require('./routes/auth'));
