@@ -14,18 +14,21 @@ async function getTransporter() {
     });
   }
 
-  // Create test account for development
-  const testAccount = await nodemailer.createTestAccount();
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.ethereal.email',
-    port: 587,
-    secure: false,
-    auth: {
-      user: testAccount.user,
-      pass: testAccount.pass
-    }
-  });
-  return transporter;
+  // Create test account for development (Ethereal)
+  try {
+    const testAccount = await nodemailer.createTestAccount();
+    return nodemailer.createTransport({
+      host: 'smtp.ethereal.email',
+      port: 587,
+      secure: false,
+      auth: { user: testAccount.user, pass: testAccount.pass }
+    });
+  } catch (e) {
+    // Ethereal unreachable — return a no-op transporter so callers don't crash
+    return {
+      sendMail: async () => { throw new Error('No SMTP configured and Ethereal test service is unreachable. Set SMTP_HOST, SMTP_USER, SMTP_PASS env vars.'); }
+    };
+  }
 }
 
 async function sendConfirmationEmail(submission, products) {

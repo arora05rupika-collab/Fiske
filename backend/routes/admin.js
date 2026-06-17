@@ -327,15 +327,20 @@ router.post('/suppliers/:id/send-request', async (req, res) => {
     const supplier = db.prepare('SELECT * FROM Suppliers WHERE id = ?').get(req.params.id);
     if (!supplier) return res.status(404).json({ error: 'Not found' });
     if (!supplier.contact_email) return res.status(400).json({ error: 'Supplier has no contact email' });
-    // Enrich with full raw material objects
     const rmIds = (() => { try { return JSON.parse(supplier.raw_materials || '[]'); } catch { return []; } })();
     const materials = rmIds.length
       ? db.prepare(`SELECT * FROM RawMaterials WHERE id IN (${rmIds.map(() => '?').join(',')})`)
           .all(...rmIds)
       : [];
-    await sendSupplierRequestEmail({ ...supplier, materials });
+    let emailSent = false;
+    try {
+      await sendSupplierRequestEmail({ ...supplier, materials });
+      emailSent = true;
+    } catch (emailErr) {
+      console.error('Supplier request email error (non-fatal):', emailErr.message);
+    }
     db.prepare("UPDATE Suppliers SET status = 'Sent Request' WHERE id = ?").run(req.params.id);
-    res.json({ success: true });
+    res.json({ success: true, emailSent, message: emailSent ? 'Request sent and email delivered.' : 'Status updated but email could not be sent — check SMTP settings.' });
   } catch (err) {
     console.error('Send request error:', err);
     res.status(500).json({ error: err.message });

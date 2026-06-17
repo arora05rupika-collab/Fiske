@@ -263,8 +263,8 @@ export default function RawMaterialDocsTab() {
                             ? rmIds.map(id => {
                                 const m = rmById(id);
                                 return (
-                                  <span key={id} className={`rm-code-badge ${m?.type === 'Food Grade' ? 'rm-code-food' : ''}`} title={m ? `${m.name} (${m.type})` : id}>
-                                    {id}
+                                  <span key={id} className={`rm-inline-chip ${m?.type === 'Food Grade' ? 'rm-chip-food' : 'rm-chip-industrial'}`}>
+                                    <strong>{id}</strong>{m ? ` · ${m.name}` : ''}
                                   </span>
                                 );
                               })

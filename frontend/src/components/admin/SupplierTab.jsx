@@ -109,9 +109,9 @@ export default function SupplierTab() {
     if (!window.confirm(`Send compliance request to ${supplier.contact_email}?`)) return;
     setSendingId(supplier.id);
     try {
-      await sendSupplierRequest(supplier.id);
+      const res = await sendSupplierRequest(supplier.id);
       setSuppliers(p => p.map(s => s.id === supplier.id ? { ...s, status: 'Sent Request' } : s));
-      alert('Request sent successfully!');
+      alert(res.data.message || 'Request sent successfully!');
     } catch (e) { alert(e.response?.data?.error || 'Failed to send request.'); }
     finally { setSendingId(null); }
   };
@@ -349,9 +349,11 @@ export default function SupplierTab() {
                           {rmIds.length > 0
                             ? rmIds.map(id => {
                                 const m = rmById(id);
-                                return m ? (
-                                  <span key={id} className={`rm-code-badge ${m.type === 'Food Grade' ? 'rm-code-food' : ''}`} title={`${m.name} (${m.type})`}>{id}</span>
-                                ) : <span key={id} className="rm-code-badge">{id}</span>;
+                                return (
+                                  <span key={id} className={`rm-inline-chip ${m?.type === 'Food Grade' ? 'rm-chip-food' : 'rm-chip-industrial'}`}>
+                                    <strong>{id}</strong>{m ? ` · ${m.name}` : ''}
+                                  </span>
+                                );
                               })
                             : <span style={{ color: '#aaa', fontSize: '0.8rem' }}>—</span>}
                         </div>
