@@ -1,8 +1,27 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
 const XLSX = require('xlsx');
+const { sendSupplierRequestEmail, sendDocumentExpiryEmail } = require('../email');
+
+const docStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '..', 'uploads', 'raw-material-docs');
+    fs.mkdirSync(uploadPath, { recursive: true });
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9-_]/g, '_');
+    cb(null, `${base}_${Date.now()}${ext}`);
+  }
+});
+const uploadDoc = multer({ storage: docStorage, limits: { fileSize: 20 * 1024 * 1024 } });
 
 // All admin routes require authentication
 router.use(authenticateToken);
@@ -189,6 +208,179 @@ router.get('/export', (req, res) => {
     res.send(buffer);
   } catch (err) {
     console.error('Export error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Suppliers ────────────────────────────────────────────────────────────────
+
+router.get('/suppliers', (req, res) => {
+  try {
+    const db = getDb();
+    const suppliers = db.prepare('SELECT * FROM Suppliers ORDER BY created_at DESC').all();
+    res.json(suppliers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/suppliers', (req, res) => {
+  try {
+    const db = getDb();
+    const { name, raw_materials, contact_email, vendor_type, status, comments } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const id = uuidv4();
+    db.prepare(`
+      INSERT INTO Suppliers (id, name, raw_materials, contact_email, vendor_type, status, comments)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(id, name, JSON.stringify(raw_materials || []), contact_email || '', vendor_type || 'Preferred Supplier', status || 'Under Review', comments || '');
+    res.json({ id, success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/suppliers/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const { name, raw_materials, contact_email, vendor_type, status, comments } = req.body;
+    const current = db.prepare('SELECT * FROM Suppliers WHERE id = ?').get(req.params.id);
+    if (!current) return res.status(404).json({ error: 'Not found' });
+    db.prepare(`
+      UPDATE Suppliers SET name=?, raw_materials=?, contact_email=?, vendor_type=?, status=?, comments=? WHERE id=?
+    `).run(
+      name ?? current.name,
+      raw_materials !== undefined ? JSON.stringify(raw_materials) : current.raw_materials,
+      contact_email ?? current.contact_email,
+      vendor_type ?? current.vendor_type,
+      status ?? current.status,
+      comments ?? current.comments,
+      req.params.id
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/suppliers/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const result = db.prepare('DELETE FROM Suppliers WHERE id = ?').run(req.params.id);
+    if (result.changes === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/suppliers/:id/send-request', async (req, res) => {
+  try {
+    const db = getDb();
+    const supplier = db.prepare('SELECT * FROM Suppliers WHERE id = ?').get(req.params.id);
+    if (!supplier) return res.status(404).json({ error: 'Not found' });
+    if (!supplier.contact_email) return res.status(400).json({ error: 'Supplier has no contact email' });
+    await sendSupplierRequestEmail(supplier);
+    db.prepare("UPDATE Suppliers SET status = 'Sent Request' WHERE id = ?").run(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Send request error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Raw Material Docs ────────────────────────────────────────────────────────
+
+router.get('/raw-material-docs', (req, res) => {
+  try {
+    const db = getDb();
+    const docs = db.prepare('SELECT * FROM RawMaterialDocs ORDER BY created_at DESC').all();
+    res.json(docs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/raw-material-docs', uploadDoc.single('file'), (req, res) => {
+  try {
+    const db = getDb();
+    const { document_type, raw_materials, expiry_date, supplier_id, supplier_name } = req.body;
+    const id = uuidv4();
+    const file_name = req.file ? req.file.originalname : req.body.file_name || '';
+    const file_path = req.file ? `/uploads/raw-material-docs/${req.file.filename}` : '';
+    db.prepare(`
+      INSERT INTO RawMaterialDocs (id, file_name, file_path, document_type, raw_materials, expiry_date, supplier_id, supplier_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, file_name, file_path, document_type || '', JSON.stringify(raw_materials ? (Array.isArray(raw_materials) ? raw_materials : [raw_materials]) : []), expiry_date || '', supplier_id || '', supplier_name || '');
+    res.json({ id, success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/raw-material-docs/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const { document_type, raw_materials, expiry_date, supplier_id, supplier_name } = req.body;
+    const current = db.prepare('SELECT * FROM RawMaterialDocs WHERE id = ?').get(req.params.id);
+    if (!current) return res.status(404).json({ error: 'Not found' });
+    db.prepare(`
+      UPDATE RawMaterialDocs SET document_type=?, raw_materials=?, expiry_date=?, supplier_id=?, supplier_name=?, expiry_notified=0 WHERE id=?
+    `).run(
+      document_type ?? current.document_type,
+      raw_materials !== undefined ? JSON.stringify(Array.isArray(raw_materials) ? raw_materials : [raw_materials]) : current.raw_materials,
+      expiry_date ?? current.expiry_date,
+      supplier_id ?? current.supplier_id,
+      supplier_name ?? current.supplier_name,
+      req.params.id
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/raw-material-docs/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const doc = db.prepare('SELECT * FROM RawMaterialDocs WHERE id = ?').get(req.params.id);
+    if (!doc) return res.status(404).json({ error: 'Not found' });
+    if (doc.file_path) {
+      const fullPath = path.join(__dirname, '..', doc.file_path.replace(/^\//, ''));
+      if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+    }
+    db.prepare('DELETE FROM RawMaterialDocs WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/raw-material-docs/check-expiry', async (req, res) => {
+  try {
+    const db = getDb();
+    const today = new Date().toISOString().split('T')[0];
+    const expired = db.prepare(`
+      SELECT d.*, s.contact_email
+      FROM RawMaterialDocs d
+      LEFT JOIN Suppliers s ON s.id = d.supplier_id
+      WHERE d.expiry_date <= ? AND d.expiry_notified = 0 AND d.expiry_date != ''
+    `).all(today);
+
+    let notified = 0;
+    for (const doc of expired) {
+      const email = doc.contact_email;
+      if (!email) continue;
+      try {
+        await sendDocumentExpiryEmail(doc, email);
+        db.prepare('UPDATE RawMaterialDocs SET expiry_notified = 1 WHERE id = ?').run(doc.id);
+        notified++;
+      } catch (e) {
+        console.error(`Failed to notify expiry for doc ${doc.id}:`, e.message);
+      }
+    }
+    res.json({ success: true, checked: expired.length, notified });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

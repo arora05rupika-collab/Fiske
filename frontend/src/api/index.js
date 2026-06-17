@@ -50,4 +50,18 @@ export const exportSubmissions = (params) => api.get('/admin/export', {
   responseType: 'blob'
 });
 
+// Supplier APIs
+export const getSuppliers = () => api.get('/admin/suppliers');
+export const createSupplier = (data) => api.post('/admin/suppliers', data);
+export const updateSupplier = (id, data) => api.patch(`/admin/suppliers/${id}`, data);
+export const deleteSupplier = (id) => api.delete(`/admin/suppliers/${id}`);
+export const sendSupplierRequest = (id) => api.post(`/admin/suppliers/${id}/send-request`);
+
+// Raw Material Docs APIs
+export const getRawMaterialDocs = () => api.get('/admin/raw-material-docs');
+export const createRawMaterialDoc = (formData) => api.post('/admin/raw-material-docs', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const updateRawMaterialDoc = (id, data) => api.patch(`/admin/raw-material-docs/${id}`, data);
+export const deleteRawMaterialDoc = (id) => api.delete(`/admin/raw-material-docs/${id}`);
+export const checkDocExpiry = () => api.post('/admin/raw-material-docs/check-expiry');
+
 export default api;

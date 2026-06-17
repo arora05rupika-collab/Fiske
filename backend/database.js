@@ -75,6 +75,30 @@ function initSchema() {
       FOREIGN KEY (product_id) REFERENCES SupplierProducts(id) ON DELETE CASCADE,
       FOREIGN KEY (submission_id) REFERENCES SupplierSubmissions(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS Suppliers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      raw_materials TEXT DEFAULT '[]',
+      contact_email TEXT,
+      vendor_type TEXT DEFAULT 'Preferred Supplier',
+      status TEXT DEFAULT 'Under Review',
+      comments TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS RawMaterialDocs (
+      id TEXT PRIMARY KEY,
+      file_name TEXT NOT NULL,
+      file_path TEXT,
+      document_type TEXT,
+      raw_materials TEXT DEFAULT '[]',
+      expiry_date TEXT,
+      supplier_id TEXT,
+      supplier_name TEXT,
+      expiry_notified INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 }
 
