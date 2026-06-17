@@ -342,6 +342,49 @@ router.patch('/:id/step4', signatureUpload.single('signature_image'), async (req
       console.error('SharePoint sync error (non-fatal):', err.message)
     );
 
+    // Populate doc library from submitted files
+    try {
+      const supplier = db.prepare('SELECT * FROM Suppliers WHERE contact_email = ?').get(updatedSubmission.contact_email);
+      if (supplier) {
+        const rmIds = (() => { try { return JSON.parse(supplier.raw_materials || '[]'); } catch { return []; } })();
+        const allRM = rmIds.length
+          ? db.prepare(`SELECT * FROM RawMaterials WHERE id IN (${rmIds.map(() => '?').join(',')})`).all(...rmIds)
+          : [];
+        const foodGradeIds = JSON.stringify(allRM.filter(m => m.type === 'Food Grade').map(m => m.id));
+
+        const insertDoc = db.prepare(`
+          INSERT OR IGNORE INTO RawMaterialDocs (id, file_name, file_path, document_type, raw_materials, expiry_date, supplier_id, supplier_name)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        // Per-product docs
+        products.forEach(product => {
+          const matchRM = allRM.find(m => m.name.toLowerCase() === product.product_name.toLowerCase());
+          const productRmIds = JSON.stringify(matchRM ? [matchRM.id] : []);
+
+          if (product.sds_file_path) {
+            insertDoc.run(uuidv4(), `${product.product_name} - SDS`, product.sds_file_path, 'SDS (Safety Data Sheet)', productRmIds, null, supplier.id, supplier.name);
+          }
+          if (product.tds_file_path) {
+            insertDoc.run(uuidv4(), `${product.product_name} - TDS`, product.tds_file_path, 'TDS (Technical Data Sheet)', productRmIds, null, supplier.id, supplier.name);
+          }
+          if (product.nsf_cert_file_path) {
+            insertDoc.run(uuidv4(), `${product.product_name} - NSF Certificate`, product.nsf_cert_file_path, 'NSF Certificate', productRmIds, product.nsf_cert_expiry || null, supplier.id, supplier.name);
+          }
+        });
+
+        // Submission-level certs (apply to all food grade materials)
+        if (updatedSubmission.kosher_cert_file_path && !updatedSubmission.kosher_cert_na) {
+          insertDoc.run(uuidv4(), `${updatedSubmission.company_name} - Kosher Certificate`, updatedSubmission.kosher_cert_file_path, 'Kosher Certificate', foodGradeIds, updatedSubmission.kosher_cert_expiry || null, supplier.id, supplier.name);
+        }
+        if (updatedSubmission.halal_cert_file_path && !updatedSubmission.halal_cert_na) {
+          insertDoc.run(uuidv4(), `${updatedSubmission.company_name} - Halal Certificate`, updatedSubmission.halal_cert_file_path, 'Halal Certificate', foodGradeIds, updatedSubmission.halal_cert_expiry || null, supplier.id, supplier.name);
+        }
+      }
+    } catch (docErr) {
+      console.error('Doc library populate error (non-fatal):', docErr.message);
+    }
+
     res.json({
       success: true,
       id,

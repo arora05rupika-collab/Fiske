@@ -23,6 +23,53 @@ const docStorage = multer.diskStorage({
 });
 const uploadDoc = multer({ storage: docStorage, limits: { fileSize: 20 * 1024 * 1024 } });
 
+function nextRCode(db) {
+  const last = db.prepare("SELECT id FROM RawMaterials ORDER BY CAST(SUBSTR(id,2) AS INTEGER) DESC LIMIT 1").get();
+  const n = last ? parseInt(last.id.substring(1)) + 1 : 1;
+  return `R${String(n).padStart(3, '0')}`;
+}
+
+// ─── Raw Materials (global list) ──────────────────────────────────────────────
+
+router.get('/raw-materials', (req, res) => {
+  try {
+    const db = getDb();
+    res.json(db.prepare('SELECT * FROM RawMaterials ORDER BY id ASC').all());
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/raw-materials', (req, res) => {
+  try {
+    const db = getDb();
+    const { name, type } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const existing = db.prepare('SELECT id FROM RawMaterials WHERE LOWER(name) = LOWER(?)').get(name.trim());
+    if (existing) return res.json({ id: existing.id, existing: true });
+    const id = nextRCode(db);
+    db.prepare('INSERT INTO RawMaterials (id, name, type) VALUES (?, ?, ?)').run(id, name.trim(), type || 'Industrial');
+    res.json({ id, success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.patch('/raw-materials/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const { name, type } = req.body;
+    const cur = db.prepare('SELECT * FROM RawMaterials WHERE id = ?').get(req.params.id);
+    if (!cur) return res.status(404).json({ error: 'Not found' });
+    db.prepare('UPDATE RawMaterials SET name=?, type=? WHERE id=?').run(name ?? cur.name, type ?? cur.type, req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.delete('/raw-materials/:id', (req, res) => {
+  try {
+    const db = getDb();
+    db.prepare('DELETE FROM RawMaterials WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // All admin routes require authentication
 router.use(authenticateToken);
 
@@ -280,7 +327,13 @@ router.post('/suppliers/:id/send-request', async (req, res) => {
     const supplier = db.prepare('SELECT * FROM Suppliers WHERE id = ?').get(req.params.id);
     if (!supplier) return res.status(404).json({ error: 'Not found' });
     if (!supplier.contact_email) return res.status(400).json({ error: 'Supplier has no contact email' });
-    await sendSupplierRequestEmail(supplier);
+    // Enrich with full raw material objects
+    const rmIds = (() => { try { return JSON.parse(supplier.raw_materials || '[]'); } catch { return []; } })();
+    const materials = rmIds.length
+      ? db.prepare(`SELECT * FROM RawMaterials WHERE id IN (${rmIds.map(() => '?').join(',')})`)
+          .all(...rmIds)
+      : [];
+    await sendSupplierRequestEmail({ ...supplier, materials });
     db.prepare("UPDATE Suppliers SET status = 'Sent Request' WHERE id = ?").run(req.params.id);
     res.json({ success: true });
   } catch (err) {

@@ -76,6 +76,13 @@ function initSchema() {
       FOREIGN KEY (submission_id) REFERENCES SupplierSubmissions(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS RawMaterials (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT DEFAULT 'Industrial',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS Suppliers (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,

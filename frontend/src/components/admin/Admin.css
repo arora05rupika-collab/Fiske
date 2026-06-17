@@ -928,3 +928,79 @@
 .docs-folder-container {
   min-height: 200px;
 }
+
+/* ─── Raw Material code badges ───────────────────────────────────────────────── */
+.rm-code-badge {
+  display: inline-block;
+  background: #e0e7ff;
+  color: #3730a3;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: monospace;
+  letter-spacing: 0.03em;
+}
+.rm-code-badge.rm-code-food {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.rm-type-chip {
+  display: inline-block;
+  border-radius: 20px;
+  padding: 2px 7px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.rm-food { background: #d1fae5; color: #065f46; }
+.rm-industrial { background: #e0e7ff; color: #3730a3; }
+
+/* ─── Raw Material select grid (in modals) ───────────────────────────────────── */
+.rm-select-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 6px;
+  background: var(--gray-50);
+}
+
+.rm-select-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s;
+  user-select: none;
+}
+.rm-select-item:hover { background: white; }
+.rm-select-item.selected { background: #eff6ff; }
+
+/* ─── Raw Materials Manager list ─────────────────────────────────────────────── */
+.rm-manager-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 340px;
+  overflow-y: auto;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 6px;
+  background: var(--gray-50);
+}
+.rm-manager-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: white;
+  border-radius: 6px;
+}
+
+/* ─── Doc list table row states ──────────────────────────────────────────────── */
+.data-table tbody tr.row-expired { background: #fff5f5; }
+.data-table tbody tr.row-expiring { background: #fffbeb; }

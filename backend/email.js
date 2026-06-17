@@ -3,7 +3,7 @@ const nodemailer = require('nodemailer');
 // Configure transporter - uses ethereal/test account if no SMTP configured
 async function getTransporter() {
   if (process.env.SMTP_HOST) {
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || '587'),
       secure: process.env.SMTP_SECURE === 'true',
@@ -16,7 +16,7 @@ async function getTransporter() {
 
   // Create test account for development
   const testAccount = await nodemailer.createTestAccount();
-  const transporter = nodemailer.createTransporter({
+  const transporter = nodemailer.createTransport({
     host: 'smtp.ethereal.email',
     port: 587,
     secure: false,
@@ -126,6 +126,10 @@ async function sendTeamNotificationEmail(submission, products) {
 
 async function sendSupplierRequestEmail(supplier) {
   const transporter = await getTransporter();
+  const materials = supplier.materials || [];
+  const materialRows = materials.map(m =>
+    `<tr><td style="padding:6px 12px;border:1px solid #ddd;">${m.id}</td><td style="padding:6px 12px;border:1px solid #ddd;">${m.name}</td><td style="padding:6px 12px;border:1px solid #ddd;">${m.type}</td></tr>`
+  ).join('');
   const info = await transporter.sendMail({
     from: '"Lubriplate Compliance Portal" <noreply@lubriplate.com>',
     to: supplier.contact_email,
@@ -140,8 +144,18 @@ async function sendSupplierRequestEmail(supplier) {
           <h2 style="color: #1A1A1A;">Compliance Document Request</h2>
           <p>Dear ${supplier.name},</p>
           <p>We are reaching out to request compliance documentation for the raw materials you supply to Lubriplate Lubricants Company.</p>
-          <p>Please submit the relevant compliance documents for the following materials: <strong>${Array.isArray(JSON.parse(supplier.raw_materials || '[]')) ? JSON.parse(supplier.raw_materials || '[]').join(', ') : supplier.raw_materials || 'your supplied materials'}</strong>.</p>
-          <p>Please use our supplier compliance portal to upload the required documents.</p>
+          ${materials.length ? `
+          <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+            <thead><tr style="background:#1A1A1A;color:white;">
+              <th style="padding:8px 12px;text-align:left;">Code</th>
+              <th style="padding:8px 12px;text-align:left;">Material</th>
+              <th style="padding:8px 12px;text-align:left;">Type</th>
+            </tr></thead>
+            <tbody>${materialRows}</tbody>
+          </table>
+          <p>For <strong>Food Grade</strong> materials, please provide Kosher and Halal certificates (if applicable).<br>
+          For each material, please provide SDS, TDS, and NSF certificate where applicable.</p>
+          ` : '<p>Please submit relevant compliance documents for all materials you supply.</p>'}
           <p style="margin-top: 30px;">Best regards,<br>
           <strong>Lubriplate Quality Team</strong><br>
           rarora@lubriplate.com</p>

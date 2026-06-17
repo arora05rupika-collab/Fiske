@@ -50,6 +50,12 @@ export const exportSubmissions = (params) => api.get('/admin/export', {
   responseType: 'blob'
 });
 
+// Raw Materials (global list) APIs
+export const getRawMaterials = () => api.get('/admin/raw-materials');
+export const createRawMaterial = (data) => api.post('/admin/raw-materials', data);
+export const updateRawMaterial = (id, data) => api.patch(`/admin/raw-materials/${id}`, data);
+export const deleteRawMaterial = (id) => api.delete(`/admin/raw-materials/${id}`);
+
 // Supplier APIs
 export const getSuppliers = () => api.get('/admin/suppliers');
 export const createSupplier = (data) => api.post('/admin/suppliers', data);
