@@ -41,13 +41,17 @@ router.get('/raw-materials', (req, res) => {
 router.post('/raw-materials', (req, res) => {
   try {
     const db = getDb();
-    const { name, type } = req.body;
+    const { name, type, id: manualId } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
-    const existing = db.prepare('SELECT id FROM RawMaterials WHERE LOWER(name) = LOWER(?)').get(name.trim());
-    if (existing) return res.json({ id: existing.id, existing: true });
-    const id = nextRCode(db);
-    db.prepare('INSERT INTO RawMaterials (id, name, type) VALUES (?, ?, ?)').run(id, name.trim(), type || 'Industrial');
-    res.json({ id, success: true });
+    if (!manualId || !manualId.trim()) return res.status(400).json({ error: 'R-code is required' });
+    const rcode = manualId.trim().toUpperCase();
+    if (!/^R\d+$/.test(rcode)) return res.status(400).json({ error: 'R-code must be R followed by digits (e.g. R001)' });
+    const taken = db.prepare('SELECT id FROM RawMaterials WHERE id = ?').get(rcode);
+    if (taken) return res.status(400).json({ error: `R-code ${rcode} is already in use` });
+    const nameTaken = db.prepare('SELECT id FROM RawMaterials WHERE LOWER(name) = LOWER(?)').get(name.trim());
+    if (nameTaken) return res.json({ id: nameTaken.id, existing: true });
+    db.prepare('INSERT INTO RawMaterials (id, name, type) VALUES (?, ?, ?)').run(rcode, name.trim(), type || 'Industrial');
+    res.json({ id: rcode, success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -67,6 +71,25 @@ router.delete('/raw-materials/:id', (req, res) => {
     const db = getDb();
     db.prepare('DELETE FROM RawMaterials WHERE id = ?').run(req.params.id);
     res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Public prefill endpoint (no auth) — returns supplier info for pre-filling the compliance form
+router.get('/suppliers/prefill/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const supplier = db.prepare('SELECT * FROM Suppliers WHERE id = ?').get(req.params.id);
+    if (!supplier) return res.status(404).json({ error: 'Not found' });
+    const rmIds = (() => { try { return JSON.parse(supplier.raw_materials || '[]'); } catch { return []; } })();
+    const materials = rmIds.length
+      ? db.prepare(`SELECT * FROM RawMaterials WHERE id IN (${rmIds.map(() => '?').join(',')})`)
+          .all(...rmIds)
+      : [];
+    res.json({
+      company_name: supplier.name,
+      contact_email: supplier.contact_email,
+      products: materials.map(m => ({ product_name: m.name, product_type: m.type }))
+    });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

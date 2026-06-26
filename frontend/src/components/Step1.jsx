@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createSubmission } from '../api';
+import axios from 'axios';
 import './Step.css';
 
 const COUNTRIES = [
@@ -56,8 +57,10 @@ function ProductRow({ product, index, onChange, onRemove, canRemove }) {
 
 export default function Step1() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [prefilled, setPrefilled] = useState(false);
 
   const [form, setForm] = useState({
     company_name: '',
@@ -69,6 +72,25 @@ export default function Step1() {
   const [products, setProducts] = useState([
     { product_name: '', product_type: '' }
   ]);
+
+  useEffect(() => {
+    const sid = searchParams.get('sid');
+    if (!sid) return;
+    axios.get(`/api/admin/suppliers/prefill/${sid}`)
+      .then(res => {
+        const d = res.data;
+        setForm(f => ({
+          ...f,
+          company_name: d.company_name || '',
+          contact_email: d.contact_email || '',
+        }));
+        if (d.products && d.products.length > 0) {
+          setProducts(d.products.map(p => ({ product_name: p.product_name, product_type: p.product_type })));
+        }
+        setPrefilled(true);
+      })
+      .catch(() => {});
+  }, []);
 
   const validate = () => {
     const newErrors = {};
@@ -142,6 +164,12 @@ export default function Step1() {
         <h1>Company Information</h1>
         <p>Please provide your company details and the products you'd like to submit for compliance review.</p>
       </div>
+
+      {prefilled && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 16px', marginBottom: '16px', fontSize: '0.875rem', color: '#166534' }}>
+          Your company information and materials have been pre-filled. Please review and complete any missing fields.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} noValidate>
         <div className="card">

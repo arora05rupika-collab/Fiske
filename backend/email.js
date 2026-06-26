@@ -68,6 +68,9 @@ async function sendTeamNotificationEmail(submission, products) {
 
 async function sendSupplierRequestEmail(supplier) {
   const materials = supplier.materials || [];
+  const supplierId = supplier.id || '';
+  const appUrl = process.env.APP_URL || process.env.DASHBOARD_URL?.replace('/admin', '') || 'http://localhost:3001';
+  const formLink = `${appUrl}/form/step1?sid=${supplierId}`;
   const materialRows = materials.map(m =>
     `<tr><td style="padding:6px 12px;border:1px solid #ddd;">${m.id}</td><td style="padding:6px 12px;border:1px solid #ddd;">${m.name}</td><td style="padding:6px 12px;border:1px solid #ddd;">${m.type}</td></tr>`
   ).join('');
@@ -92,6 +95,10 @@ async function sendSupplierRequestEmail(supplier) {
         <p>For <strong>Food Grade</strong> materials, please provide Kosher and Halal certificates (if applicable).<br>
         For each material, please provide SDS, TDS, and NSF certificate where applicable.</p>
         ` : '<p>Please submit relevant compliance documents for all materials you supply.</p>'}
+        <div style="margin:28px 0;text-align:center;">
+          <a href="${formLink}" style="display:inline-block;background:#CC0000;color:white;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;">Submit Compliance Form →</a>
+        </div>
+        <p style="font-size:12px;color:#888;">If the button above doesn't work, copy and paste this link into your browser:<br><a href="${formLink}" style="color:#CC0000;">${formLink}</a></p>
         <p style="margin-top:30px;">Best regards,<br><strong>Lubriplate Quality Team</strong><br>rarora@lubriplate.com</p>
       </div>
       ${FOOTER}</div>`

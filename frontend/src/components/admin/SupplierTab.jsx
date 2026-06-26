@@ -23,7 +23,7 @@ export default function SupplierTab() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptySupplier);
   const [selectedRmIds, setSelectedRmIds] = useState([]); // R-codes assigned to this supplier
-  const [newMat, setNewMat] = useState({ name: '', type: 'Industrial' });
+  const [newMat, setNewMat] = useState({ id: '', name: '', type: 'Industrial' });
   const [addingMat, setAddingMat] = useState(false);
   const [rmSearch, setRmSearch] = useState('');
   const [saving, setSaving] = useState(false);
@@ -50,7 +50,7 @@ export default function SupplierTab() {
     setEditingId(null);
     setShowForm(true);
     setError('');
-    setNewMat({ name: '', type: 'Industrial' });
+    setNewMat({ id: '', name: '', type: 'Industrial' });
   };
 
   const openEdit = (s) => {
@@ -60,24 +60,25 @@ export default function SupplierTab() {
     setEditingId(s.id);
     setShowForm(true);
     setError('');
-    setNewMat({ name: '', type: 'Industrial' });
+    setNewMat({ id: '', name: '', type: 'Industrial' });
   };
 
-  const closeForm = () => { setShowForm(false); setEditingId(null); setError(''); setRmSearch(''); };
+  const closeForm = () => { setShowForm(false); setEditingId(null); setError(''); setRmSearch(''); setNewMat({ id: '', name: '', type: 'Industrial' }); setAddingMat(false); };
 
   const toggleRm = (id) => {
     setSelectedRmIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   const handleAddNewMaterial = async () => {
-    if (!newMat.name.trim()) return;
+    if (!newMat.name.trim()) return alert('Material name is required.');
+    if (!newMat.id.trim()) return alert('R-code is required (e.g. R001).');
     try {
-      const res = await createRawMaterial({ name: newMat.name.trim(), type: newMat.type });
+      const res = await createRawMaterial({ id: newMat.id.trim(), name: newMat.name.trim(), type: newMat.type });
       const newId = res.data.id;
       const updated = await getRawMaterials();
       setAllMaterials(updated.data);
       if (!selectedRmIds.includes(newId)) setSelectedRmIds(prev => [...prev, newId]);
-      setNewMat({ name: '', type: 'Industrial' });
+      setNewMat({ id: '', name: '', type: 'Industrial' });
       setAddingMat(false);
     } catch (e) { alert(e.response?.data?.error || 'Failed to add material.'); }
   };
@@ -159,7 +160,13 @@ export default function SupplierTab() {
               <button className="modal-close" onClick={() => setShowRmManager(false)}>✕</button>
             </div>
             <div className="modal-body">
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <input
+                  placeholder="R-code (e.g. R001)"
+                  value={newMat.id}
+                  onChange={e => setNewMat(p => ({ ...p, id: e.target.value }))}
+                  style={{ width: '110px', border: '1.5px solid #e5e7eb', borderRadius: '6px', padding: '7px 10px', fontSize: '0.875rem' }}
+                />
                 <input
                   placeholder="Material name"
                   value={newMat.name}
@@ -244,7 +251,13 @@ export default function SupplierTab() {
                 </div>
 
                 {addingMat && (
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', background: '#f9fafb', borderRadius: '8px', padding: '10px' }}>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', background: '#f9fafb', borderRadius: '8px', padding: '10px', flexWrap: 'wrap' }}>
+                    <input
+                      placeholder="R-code (e.g. R001)"
+                      value={newMat.id}
+                      onChange={e => setNewMat(p => ({ ...p, id: e.target.value }))}
+                      style={{ width: '110px', border: '1.5px solid #e5e7eb', borderRadius: '6px', padding: '6px 10px', fontSize: '0.85rem' }}
+                    />
                     <input
                       placeholder="Material name"
                       value={newMat.name}
