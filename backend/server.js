@@ -55,9 +55,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Serve frontend in production
-if (process.env.NODE_ENV === 'production') {
-  const frontendBuild = path.join(__dirname, '..', 'frontend', 'dist');
+// Serve frontend
+const frontendBuild = path.join(__dirname, '..', 'frontend', 'dist');
+if (fs.existsSync(frontendBuild)) {
   app.use(express.static(frontendBuild));
   app.get('*', (req, res) => {
     res.sendFile(path.join(frontendBuild, 'index.html'));
