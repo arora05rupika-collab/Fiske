@@ -333,14 +333,16 @@ router.post('/suppliers/:id/send-request', async (req, res) => {
           .all(...rmIds)
       : [];
     let emailSent = false;
+    let emailError = null;
     try {
       await sendSupplierRequestEmail({ ...supplier, materials });
       emailSent = true;
     } catch (emailErr) {
-      console.error('Supplier request email error (non-fatal):', emailErr.message);
+      emailError = emailErr.message;
+      console.error('Supplier request email error:', emailErr.message);
     }
     db.prepare("UPDATE Suppliers SET status = 'Sent Request' WHERE id = ?").run(req.params.id);
-    res.json({ success: true, emailSent, message: emailSent ? 'Request sent and email delivered.' : 'Status updated but email could not be sent — check SMTP settings.' });
+    res.json({ success: true, emailSent, message: emailSent ? 'Request sent and email delivered.' : `Status updated but email failed: ${emailError}` });
   } catch (err) {
     console.error('Send request error:', err);
     res.status(500).json({ error: err.message });
