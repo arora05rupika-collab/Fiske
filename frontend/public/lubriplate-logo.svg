@@ -1,29 +1,141 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 80" fill="none">
-  <!-- Red background bar -->
-  <rect width="340" height="80" rx="4" fill="#CC0000"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 240" fill="none">
+  <defs>
+    <!-- Main metallic silver gradient -->
+    <linearGradient id="metalMain" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e8e8e8"/>
+      <stop offset="20%" stop-color="#d0d0d0"/>
+      <stop offset="45%" stop-color="#b8b8b8"/>
+      <stop offset="55%" stop-color="#c8c8c8"/>
+      <stop offset="80%" stop-color="#d4d4d4"/>
+      <stop offset="100%" stop-color="#a8a8a8"/>
+    </linearGradient>
+    <!-- Border gradient -->
+    <linearGradient id="metalBorder" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#999"/>
+      <stop offset="40%" stop-color="#777"/>
+      <stop offset="60%" stop-color="#888"/>
+      <stop offset="100%" stop-color="#666"/>
+    </linearGradient>
+    <!-- Banner gradient for LUBRIPLATE pill -->
+    <linearGradient id="bannerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2a2a2a"/>
+      <stop offset="30%" stop-color="#1a1a1a"/>
+      <stop offset="70%" stop-color="#111"/>
+      <stop offset="100%" stop-color="#2a2a2a"/>
+    </linearGradient>
+    <!-- Inner plate lighter area -->
+    <linearGradient id="innerPlate" x1="0%" y1="0%" x2="10%" y2="100%">
+      <stop offset="0%" stop-color="#ddd"/>
+      <stop offset="30%" stop-color="#c8c8c8"/>
+      <stop offset="60%" stop-color="#b8b8b8"/>
+      <stop offset="100%" stop-color="#c0c0c0"/>
+    </linearGradient>
+  </defs>
 
-  <!-- White LUBRIPLATE wordmark -->
-  <text
-    x="170"
-    y="50"
-    text-anchor="middle"
-    font-family="'Arial Black', 'Franklin Gothic Heavy', 'Impact', sans-serif"
-    font-size="38"
-    font-weight="900"
-    fill="#FFFFFF"
-    letter-spacing="3"
-  >LUBRIPLATE</text>
+  <!-- Outer badge shape (complex notched shield) -->
+  <path d="
+    M 60,20
+    L 100,8  L 320,8  L 360,20
+    L 400,50  L 410,80
+    L 405,100  L 400,108
+    L 410,118  L 410,148
+    L 395,175  L 360,195
+    L 320,205  L 280,212
+    L 210,218  L 140,212
+    L 100,205  L 60,195
+    L 25,175  L 10,148
+    L 10,118  L 20,108
+    L 15,100  L 10,80
+    L 20,50  Z
+  " fill="url(#metalBorder)" />
 
-  <!-- White subtitle -->
-  <text
-    x="170"
-    y="68"
+  <!-- Main inner badge shape -->
+  <path d="
+    M 68,28
+    L 105,17  L 315,17  L 352,28
+    L 390,55  L 398,82
+    L 393,99  L 388,107
+    L 397,117  L 397,146
+    L 383,170  L 350,188
+    L 315,197  L 278,204
+    L 210,210  L 142,204
+    L 105,197  L 72,188
+    L 37,170  L 23,146
+    L 23,117  L 32,107
+    L 27,99  L 22,82
+    L 30,55  Z
+  " fill="url(#metalMain)" />
+
+  <!-- Inner border line -->
+  <path d="
+    M 75,35
+    L 108,25  L 312,25  L 345,35
+    L 378,58  L 386,83
+    L 381,98  L 376,106
+    L 384,116  L 384,143
+    L 371,164  L 342,181
+    L 312,189  L 277,196
+    L 210,202  L 143,196
+    L 108,189  L 78,181
+    L 49,164  L 36,143
+    L 36,116  L 44,106
+    L 39,98  L 34,83
+    L 42,58  Z
+  " fill="none" stroke="#aaa" stroke-width="1.5"/>
+
+  <!-- "It's the Film" cursive text at top -->
+  <text x="185" y="14" text-anchor="middle"
+    font-family="'Palatino Linotype', 'Book Antiqua', Georgia, serif"
+    font-size="16" font-style="italic" font-weight="600"
+    fill="#222" letter-spacing="0.5">"It's the Film"</text>
+
+  <!-- ® symbol -->
+  <text x="340" y="12"
+    font-family="Arial, sans-serif" font-size="13"
+    fill="#444">®</text>
+
+  <!-- PREVENTS WEAR and CORROSION text -->
+  <text x="95" y="72"
+    font-family="Arial, Helvetica, sans-serif"
+    font-size="12.5" font-weight="700"
+    fill="#1a1a1a" letter-spacing="0.3">PREVENTS WEAR and</text>
+  <text x="95" y="88"
+    font-family="Arial, Helvetica, sans-serif"
+    font-size="12.5" font-weight="700"
+    fill="#1a1a1a" letter-spacing="0.3">CORROSION</text>
+
+  <!-- LUBRIPLATE banner pill - outer shadow -->
+  <ellipse cx="210" cy="130" rx="168" ry="40" fill="#111" opacity="0.3" transform="translate(3,4)"/>
+
+  <!-- LUBRIPLATE banner pill -->
+  <ellipse cx="210" cy="128" rx="168" ry="40" fill="url(#bannerGrad)" />
+  <!-- Banner highlight rim -->
+  <ellipse cx="210" cy="128" rx="168" ry="40" fill="none" stroke="#555" stroke-width="2"/>
+  <ellipse cx="210" cy="128" rx="163" ry="35" fill="none" stroke="#333" stroke-width="1"/>
+
+  <!-- LUBRIPLATE text -->
+  <text x="210" y="138"
     text-anchor="middle"
-    font-family="Arial, sans-serif"
-    font-size="11"
-    font-weight="400"
-    fill="#FFFFFF"
-    letter-spacing="4"
-    opacity="0.9"
-  >LUBRICANTS COMPANY</text>
+    font-family="'Arial Black', 'Franklin Gothic Heavy', Impact, sans-serif"
+    font-size="46" font-weight="900"
+    fill="#fff"
+    letter-spacing="2">LUBRIPLATE</text>
+
+  <!-- SUPER-LUBRICATION text -->
+  <text x="295" y="178"
+    text-anchor="middle"
+    font-family="Arial, Helvetica, sans-serif"
+    font-size="12.5" font-weight="700"
+    fill="#1a1a1a" letter-spacing="0.3">SUPER–</text>
+  <text x="295" y="193"
+    text-anchor="middle"
+    font-family="Arial, Helvetica, sans-serif"
+    font-size="12.5" font-weight="700"
+    fill="#1a1a1a" letter-spacing="0.3">LUBRICATION</text>
+
+  <!-- Decorative horizontal lines -->
+  <line x1="68" y1="100" x2="155" y2="100" stroke="#888" stroke-width="1"/>
+  <line x1="265" y1="100" x2="352" y2="100" stroke="#888" stroke-width="1"/>
+  <line x1="68" y1="160" x2="155" y2="160" stroke="#888" stroke-width="1"/>
+  <line x1="265" y1="160" x2="352" y2="160" stroke="#888" stroke-width="1"/>
 </svg>
