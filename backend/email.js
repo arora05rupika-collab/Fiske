@@ -3,14 +3,16 @@ const nodemailer = require('nodemailer');
 // Configure transporter - uses ethereal/test account if no SMTP configured
 async function getTransporter() {
   if (process.env.SMTP_HOST) {
+    const port = parseInt(process.env.SMTP_PORT || '465');
     return nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true',
+      port,
+      secure: port === 465,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
-      }
+      },
+      tls: { rejectUnauthorized: false }
     });
   }
 
