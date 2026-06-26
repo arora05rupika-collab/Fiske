@@ -1,19 +1,53 @@
-const { Resend } = require('resend');
+const https = require('https');
 
-const FROM = 'Lubriplate Compliance Portal <onboarding@resend.dev>';
+const APP_URL = process.env.APP_URL || `http://localhost:${process.env.PORT || 3001}`;
 
-function getResend() {
-  if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY env var not set.');
-  return new Resend(process.env.RESEND_API_KEY);
+function getSenderEmail() {
+  if (!process.env.BREVO_SENDER_EMAIL) throw new Error('BREVO_SENDER_EMAIL env var not set.');
+  return process.env.BREVO_SENDER_EMAIL;
 }
 
 async function sendEmail({ to, subject, html }) {
-  const resend = getResend();
-  const { error } = await resend.emails.send({ from: FROM, to, subject, html });
-  if (error) throw new Error(error.message);
+  if (!process.env.BREVO_API_KEY) throw new Error('BREVO_API_KEY env var not set.');
+  const senderEmail = getSenderEmail();
+  const body = JSON.stringify({
+    sender: { name: 'Lubriplate Compliance Portal', email: senderEmail },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+  });
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.brevo.com',
+      path: '/v3/smtp/email',
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve();
+        } else {
+          try {
+            const parsed = JSON.parse(data);
+            reject(new Error(parsed.message || `Brevo error ${res.statusCode}`));
+          } catch {
+            reject(new Error(`Brevo error ${res.statusCode}: ${data}`));
+          }
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
 }
 
-const APP_URL = process.env.APP_URL || `http://localhost:${process.env.PORT || 3001}`;
 const FOOTER = `<div style="background:#1A1A1A;padding:15px;text-align:center;"><p style="color:#888;margin:0;font-size:12px;">© ${new Date().getFullYear()} Lubriplate Lubricants Company. All rights reserved.</p></div>`;
 const HEADER = `<div style="background:#CC0000;padding:18px 24px;text-align:center;"><img src="${APP_URL}/lubriplate-logo.svg" alt="Lubriplate" style="height:60px;max-width:280px;" onerror="this.style.display='none';this.nextSibling.style.display='block'"/><div style="display:none"><h1 style="color:#fff;margin:0;font-family:Arial Black,sans-serif;letter-spacing:3px;">LUBRIPLATE</h1><p style="color:#fff;margin:4px 0 0;font-size:11px;letter-spacing:3px;opacity:0.9;">LUBRICANTS COMPANY</p></div></div>`;
 
@@ -44,7 +78,7 @@ async function sendConfirmationEmail(submission, products) {
 }
 
 async function sendTeamNotificationEmail(submission, products) {
-  const dashboardUrl = process.env.DASHBOARD_URL || `http://localhost:${process.env.PORT || 3001}/admin`;
+  const dashboardUrl = process.env.DASHBOARD_URL || `${APP_URL}/admin`;
   await sendEmail({
     to: 'rarora@lubriplate.com',
     subject: `New Compliance Submission — ${submission.company_name} (${submission.reference_number})`,
@@ -70,8 +104,7 @@ async function sendTeamNotificationEmail(submission, products) {
 async function sendSupplierRequestEmail(supplier) {
   const materials = supplier.materials || [];
   const supplierId = supplier.id || '';
-  const appUrl = process.env.APP_URL || process.env.DASHBOARD_URL?.replace('/admin', '') || 'http://localhost:3001';
-  const formLink = `${appUrl}/form/step1?sid=${supplierId}`;
+  const formLink = `${APP_URL}/form/step1?sid=${supplierId}`;
   const materialRows = materials.map(m =>
     `<tr><td style="padding:6px 12px;border:1px solid #ddd;">${m.id}</td><td style="padding:6px 12px;border:1px solid #ddd;">${m.name}</td><td style="padding:6px 12px;border:1px solid #ddd;">${m.type}</td></tr>`
   ).join('');
