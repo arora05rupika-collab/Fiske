@@ -13,8 +13,9 @@ async function sendEmail({ to, subject, html }) {
   if (error) throw new Error(error.message);
 }
 
+const APP_URL = process.env.APP_URL || `http://localhost:${process.env.PORT || 3001}`;
 const FOOTER = `<div style="background:#1A1A1A;padding:15px;text-align:center;"><p style="color:#888;margin:0;font-size:12px;">© ${new Date().getFullYear()} Lubriplate Lubricants Company. All rights reserved.</p></div>`;
-const HEADER = `<div style="background:#1A1A1A;padding:20px;text-align:center;"><h1 style="color:#CC0000;margin:0;">LUBRIPLATE</h1><p style="color:#fff;margin:5px 0 0;">Lubricants Company</p></div>`;
+const HEADER = `<div style="background:#CC0000;padding:18px 24px;text-align:center;"><img src="${APP_URL}/lubriplate-logo.svg" alt="Lubriplate" style="height:60px;max-width:280px;" onerror="this.style.display='none';this.nextSibling.style.display='block'"/><div style="display:none"><h1 style="color:#fff;margin:0;font-family:Arial Black,sans-serif;letter-spacing:3px;">LUBRIPLATE</h1><p style="color:#fff;margin:4px 0 0;font-size:11px;letter-spacing:3px;opacity:0.9;">LUBRICANTS COMPANY</p></div></div>`;
 
 async function sendConfirmationEmail(submission, products) {
   await sendEmail({
