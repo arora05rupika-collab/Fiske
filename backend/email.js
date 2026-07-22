@@ -2,16 +2,11 @@ const https = require('https');
 
 const APP_URL = process.env.APP_URL || `http://localhost:${process.env.PORT || 3001}`;
 
-function getSenderEmail() {
-  if (!process.env.BREVO_SENDER_EMAIL) throw new Error('BREVO_SENDER_EMAIL env var not set.');
-  return process.env.BREVO_SENDER_EMAIL;
-}
-
 async function sendEmail({ to, subject, html }) {
   if (!process.env.BREVO_API_KEY) throw new Error('BREVO_API_KEY env var not set.');
-  const senderEmail = getSenderEmail();
+  if (!process.env.BREVO_SENDER_EMAIL) throw new Error('BREVO_SENDER_EMAIL env var not set.');
   const body = JSON.stringify({
-    sender: { name: 'Lubriplate Compliance Portal', email: senderEmail },
+    sender: { name: 'Lubriplate Compliance Portal', email: process.env.BREVO_SENDER_EMAIL },
     to: [{ email: to }],
     subject,
     htmlContent: html,
@@ -33,12 +28,8 @@ async function sendEmail({ to, subject, html }) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve();
         } else {
-          try {
-            const parsed = JSON.parse(data);
-            reject(new Error(parsed.message || `Brevo error ${res.statusCode}`));
-          } catch {
-            reject(new Error(`Brevo error ${res.statusCode}: ${data}`));
-          }
+          try { reject(new Error(JSON.parse(data).message || `Brevo error ${res.statusCode}`)); }
+          catch { reject(new Error(`Brevo error ${res.statusCode}: ${data}`)); }
         }
       });
     });
@@ -48,8 +39,16 @@ async function sendEmail({ to, subject, html }) {
   });
 }
 
+// Pure HTML/CSS header — no external image, works in all email clients
+const HEADER = `
+  <div style="background:#CC0000;padding:22px 24px;text-align:center;">
+    <div style="display:inline-block;border:2px solid rgba(255,255,255,0.4);border-radius:4px;padding:8px 20px;">
+      <div style="font-family:'Arial Black',Arial,sans-serif;font-size:28px;font-weight:900;color:#ffffff;letter-spacing:4px;line-height:1;">LUBRIPLATE</div>
+      <div style="font-family:Arial,sans-serif;font-size:10px;color:rgba(255,255,255,0.85);letter-spacing:4px;margin-top:4px;">LUBRICANTS COMPANY</div>
+    </div>
+  </div>`;
+
 const FOOTER = `<div style="background:#1A1A1A;padding:15px;text-align:center;"><p style="color:#888;margin:0;font-size:12px;">© ${new Date().getFullYear()} Lubriplate Lubricants Company. All rights reserved.</p></div>`;
-const HEADER = `<div style="background:#CC0000;padding:18px 24px;text-align:center;"><img src="${APP_URL}/lubriplate-logo.svg" alt="Lubriplate" style="height:60px;max-width:280px;" onerror="this.style.display='none';this.nextSibling.style.display='block'"/><div style="display:none"><h1 style="color:#fff;margin:0;font-family:Arial Black,sans-serif;letter-spacing:3px;">LUBRIPLATE</h1><p style="color:#fff;margin:4px 0 0;font-size:11px;letter-spacing:3px;opacity:0.9;">LUBRICANTS COMPANY</p></div></div>`;
 
 async function sendConfirmationEmail(submission, products) {
   await sendEmail({
