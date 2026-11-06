@@ -248,7 +248,12 @@ class SharePointService {
       const safeName = product.product_name.replace(/[^a-zA-Z0-9]/g, '_');
       await upload(product.sds_file_path, `${safeName}_SDS`);
       await upload(product.tds_file_path, `${safeName}_TDS`);
-      await upload(product.nsf_cert_file_path, `${safeName}_NSF_Certificate`);
+      let nsfFiles = [];
+      try { nsfFiles = JSON.parse(product.nsf_cert_files || '[]'); } catch { /* ignore */ }
+      if (nsfFiles.length === 0 && product.nsf_cert_file_path) nsfFiles = [product.nsf_cert_file_path];
+      for (let i = 0; i < nsfFiles.length; i++) {
+        await upload(nsfFiles[i], `${safeName}_NSF_Certificate${nsfFiles.length > 1 ? `_${i + 1}` : ''}`);
+      }
       await upload(product.halal_cert_file_path, `${safeName}_Halal_Certificate`);
       await upload(product.kosher_cert_file_path, `${safeName}_Kosher_Certificate`);
       await upload(product.pfas_file_path, `${safeName}_PFAS_Statement`);

@@ -58,7 +58,7 @@ async function sendConfirmationEmail(submission, products) {
     html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
       ${HEADER}
       <div style="padding:30px;background:#f9f9f9;">
-        <h2 style="color:#1A1A1A;">Submission Confirmed ✓</h2>
+        <h2 style="color:#1A1A1A;">Submission Confirmed</h2>
         <p>Dear ${submission.contact_name},</p>
         <p>Thank you for submitting your compliance information. Your submission has been received and is under review.</p>
         <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:20px;margin:20px 0;">

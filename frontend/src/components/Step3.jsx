@@ -15,6 +15,7 @@ export default function Step3() {
   const [containsAllergens, setContainsAllergens] = useState('');
   // selected[productId] = Set of allergen codes
   const [selected, setSelected] = useState({});
+  const [allergenProducts, setAllergenProducts] = useState([]);
   const [inPlant, setInPlant] = useState('');
   const [crossContamination, setCrossContamination] = useState('');
   const [wheatStarch, setWheatStarch] = useState('');
@@ -32,6 +33,7 @@ export default function Step3() {
           sel[a.product_id] = [...(sel[a.product_id] || []), a.allergen_code];
         });
         setSelected(sel);
+        setAllergenProducts(Object.keys(sel));
         setContainsAllergens(d.allergens_in_products || '');
         setInPlant(d.allergens_in_plant || '');
         setCrossContamination(d.cross_contamination_procedures || '');
@@ -55,12 +57,46 @@ export default function Step3() {
 
   const clearError = (key) => setErrors(prev => ({ ...prev, [key]: undefined }));
 
+  const toggleProduct = (productId) => {
+    setAllergenProducts(prev => (prev.includes(productId) ? prev.filter(x => x !== productId) : [...prev, productId]));
+    setErrors(prev => ({ ...prev, products: undefined, selection: undefined }));
+  };
+
+  const buildPayload = () => {
+    const allergens = [];
+    if (containsAllergens === 'Yes') {
+      products.filter(p => allergenProducts.includes(p.id)).forEach(p => {
+        (selected[p.id] || []).forEach(code => {
+          const a = ALLERGENS.find(x => x.code === code);
+          if (a) allergens.push({ product_id: p.id, allergen_code: a.code, allergen_label: a.label, in_product: 'Yes' });
+        });
+      });
+    }
+    return {
+      allergens,
+      allergens_in_products: containsAllergens,
+      allergens_in_plant: inPlant,
+      cross_contamination_procedures: crossContamination,
+      wheat_starch_packaging: wheatStarch,
+    };
+  };
+
+  const goBack = async () => {
+    setLoading(true);
+    try { await updateStep3(id, buildPayload()); } catch { /* still allow going back */ }
+    setLoading(false);
+    navigate(`/form/step2/${id}?p=${Math.max(0, products.length - 1)}`);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = {};
     if (!containsAllergens) errs.containsAllergens = 'Please select Yes or No';
-    if (containsAllergens === 'Yes' && !Object.values(selected).some(list => list.length > 0)) {
-      errs.selection = 'Please select at least one product and allergen';
+    if (containsAllergens === 'Yes') {
+      if (allergenProducts.length === 0) errs.products = 'Please select the product(s) that contain allergens';
+      else if (allergenProducts.some(pid => !(selected[pid] || []).length)) {
+        errs.selection = 'Please select at least one allergen for each product you ticked';
+      }
     }
     if (!inPlant) errs.inPlant = 'Please select an answer';
     if (!crossContamination) errs.crossContamination = 'Please select an answer';
@@ -74,23 +110,7 @@ export default function Step3() {
     setSaveError('');
     setLoading(true);
     try {
-      const allergens = [];
-      if (containsAllergens === 'Yes') {
-        products.forEach(p => {
-          (selected[p.id] || []).forEach(code => {
-            const a = ALLERGENS.find(x => x.code === code);
-            if (a) allergens.push({ product_id: p.id, allergen_code: a.code, allergen_label: a.label, in_product: 'Yes' });
-          });
-        });
-      }
-
-      await updateStep3(id, {
-        allergens,
-        allergens_in_products: containsAllergens,
-        allergens_in_plant: inPlant,
-        cross_contamination_procedures: crossContamination,
-        wheat_starch_packaging: wheatStarch,
-      });
+      await updateStep3(id, buildPayload());
       navigate(`/form/step4/${id}`);
     } catch (err) {
       setSaveError(apiErrorMessage(err));
@@ -119,7 +139,6 @@ export default function Step3() {
       <form onSubmit={handleSubmit} noValidate>
         <div className="card" style={{ marginBottom: '20px' }}>
           <h3 className="section-title">
-            <span className="section-icon">🧪</span>
             Allergen List
           </h3>
 
@@ -150,8 +169,23 @@ export default function Step3() {
 
           {containsAllergens === 'Yes' && (
             <div className="question-block">
-              <label>Select the allergens each product contains <span className="required">*</span></label>
-              {products.map(p => (
+              <label>Which of your products contain allergens? <span className="required">*</span></label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {products.map(p => (
+                  <label key={p.id} className="checkbox-group" style={{ fontWeight: 500, fontSize: '0.9rem' }}>
+                    <input type="checkbox" checked={allergenProducts.includes(p.id)} onChange={() => toggleProduct(p.id)} />
+                    <span>{p.product_name} <span style={{ color: 'var(--gray-500)', fontWeight: 400 }}>({p.product_type})</span></span>
+                  </label>
+                ))}
+              </div>
+              {errors.products && <span className="error-msg">{errors.products}</span>}
+            </div>
+          )}
+
+          {containsAllergens === 'Yes' && allergenProducts.length > 0 && (
+            <div className="question-block">
+              <label>Select the allergen(s) in each product <span className="required">*</span></label>
+              {products.filter(p => allergenProducts.includes(p.id)).map(p => (
                 <div key={p.id} className="product-allergen-row">
                   <h4>
                     {p.product_name}
@@ -187,7 +221,6 @@ export default function Step3() {
 
         <div className="card" style={{ marginBottom: '20px' }}>
           <h3 className="section-title">
-            <span className="section-icon">🏭</span>
             Facility Practices
           </h3>
 
@@ -228,7 +261,8 @@ export default function Step3() {
           <button
             type="button"
             className="btn btn-outline step-back-btn"
-            onClick={() => navigate(`/form/step2/${id}?p=${Math.max(0, products.length - 1)}`)}
+            onClick={goBack}
+            disabled={loading}
           >
             ← Back
           </button>

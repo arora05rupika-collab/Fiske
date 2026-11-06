@@ -31,8 +31,10 @@ export default function Step4() {
       try {
         const res = await getSubmission(id);
         setSubmission(res.data);
-        if (res.data.signatory_name) setSignatoryName(res.data.signatory_name);
-        if (res.data.signatory_title) setSignatoryTitle(res.data.signatory_title);
+        let draft = {};
+        try { draft = JSON.parse(sessionStorage.getItem(`signatory-${id}`) || '{}'); } catch { /* storage unavailable */ }
+        setSignatoryName(res.data.signatory_name || draft.name || '');
+        setSignatoryTitle(res.data.signatory_title || draft.title || '');
       } catch (err) {
         console.error(err);
       } finally {
@@ -143,7 +145,6 @@ export default function Step4() {
         {/* Declaration */}
         <div className="card" style={{ marginBottom: '20px' }}>
           <h3 className="section-title">
-            <span className="section-icon">📜</span>
             Legal Declaration
           </h3>
 
@@ -197,7 +198,6 @@ export default function Step4() {
         {/* Signature */}
         <div className="card" style={{ marginBottom: '20px' }}>
           <h3 className="section-title">
-            <span className="section-icon">✍️</span>
             Signature <span className="required">*</span>
           </h3>
           <p style={{ marginBottom: '12px', fontSize: '0.875rem' }}>
@@ -243,7 +243,10 @@ export default function Step4() {
         <FormErrorBanner message={saveError} />
 
         <div className="step-actions">
-          <button type="button" className="btn btn-outline step-back-btn" onClick={() => navigate(-1)}>
+          <button type="button" className="btn btn-outline step-back-btn" onClick={() => {
+            try { sessionStorage.setItem(`signatory-${id}`, JSON.stringify({ name: signatoryName, title: signatoryTitle })); } catch { /* storage unavailable */ }
+            navigate(`/form/step4/${id}`);
+          }}>
             ← Back
           </button>
           <button type="submit" className="btn btn-success btn-lg" disabled={loading}>

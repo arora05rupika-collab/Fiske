@@ -19,6 +19,15 @@ function ViewFile({ label, path }) {
   );
 }
 
+function nsfFiles(p) {
+  try {
+    const list = JSON.parse(p.nsf_cert_files || '[]');
+    return list.length ? list : (p.nsf_cert_file_path ? [p.nsf_cert_file_path] : []);
+  } catch {
+    return p.nsf_cert_file_path ? [p.nsf_cert_file_path] : [];
+  }
+}
+
 function Field({ label, value, type = 'text' }) {
   return (
     <div className="form-group">
@@ -72,7 +81,7 @@ export default function SubmissionFormView({ submission: s }) {
         <div className="step-container">
           <StepHeader step="Step 1 of 5" title="Company Information" />
           <div className="card">
-            <h3 className="section-title"><span className="section-icon">🏢</span>Company Details</h3>
+            <h3 className="section-title">Company Details</h3>
             <div className="grid-2">
               <Field label="Company Legal Name" value={s.company_name} />
               <Field label="Country of Registration" value={s.country} />
@@ -92,7 +101,7 @@ export default function SubmissionFormView({ submission: s }) {
 
           <div className="card" style={{ marginTop: '20px' }}>
             <div className="section-header-row">
-              <h3 className="section-title"><span className="section-icon">📦</span>Products</h3>
+              <h3 className="section-title">Products</h3>
               <div className="product-count-badge">{products.length} product{products.length !== 1 ? 's' : ''}</div>
             </div>
             <div className="products-header"><span>Product Name</span><span>Product Type</span></div>
@@ -118,7 +127,7 @@ export default function SubmissionFormView({ submission: s }) {
               <StepHeader step={`Step 2 of 5 — Product ${i + 1} of ${products.length}`} title={p.product_name} />
               <div className="card" style={{ marginBottom: '20px' }}>
                 <div className="section-header-row">
-                  <h3 className="section-title"><span className="section-icon">📄</span>Product Documents</h3>
+                  <h3 className="section-title">Product Documents</h3>
                   <TypeBadge type={p.product_type} />
                 </div>
                 <div className="grid-2">
@@ -128,7 +137,7 @@ export default function SubmissionFormView({ submission: s }) {
               </div>
 
               <div className="card" style={{ marginBottom: '20px' }}>
-                <h3 className="section-title"><span className="section-icon">🔬</span>PFAS & MOAH</h3>
+                <h3 className="section-title">PFAS & MOAH</h3>
                 <div className="question-block">
                   <label>Is this product PFAS free?</label>
                   <ChoiceButtons value={p.pfas_free} disabled />
@@ -143,7 +152,7 @@ export default function SubmissionFormView({ submission: s }) {
 
               {isFoodGrade && (
                 <div className="card" style={{ marginBottom: '20px' }}>
-                  <h3 className="section-title"><span className="section-icon">🏅</span>Food Grade Certifications</h3>
+                  <h3 className="section-title">Food Grade Certifications</h3>
                   <div className="question-block">
                     <label>Is this product Halal certified?</label>
                     <ChoiceButtons value={p.halal_certified} options={['Yes', 'No', 'N/A']} disabled />
@@ -167,9 +176,14 @@ export default function SubmissionFormView({ submission: s }) {
                   <div className="question-block">
                     <label>NSF Certification</label>
                     <div className="grid-2">
-                      <ViewFile label="NSF certificate" path={p.nsf_cert_file_path} />
                       <div>
-                        <Field label="NSF expiry date" type="date" value={p.nsf_cert_expiry} />
+                        {nsfFiles(p).length === 0 && <ViewFile label="NSF certificate(s)" path={null} />}
+                        {nsfFiles(p).map((f, n, all) => (
+                          <ViewFile key={f} label={all.length > 1 ? `NSF certificate ${n + 1}` : 'NSF certificate'} path={f} />
+                        ))}
+                      </div>
+                      <div>
+                        <Field label="NSF expiry date (3 years from submission)" type="date" value={p.nsf_cert_expiry} />
                         <Field label="NSF registration number" value={p.nsf_registration_number} />
                       </div>
                     </div>
@@ -183,7 +197,7 @@ export default function SubmissionFormView({ submission: s }) {
         {hasLegacyCerts && (
           <div className="step-container">
             <div className="card">
-              <h3 className="section-title"><span className="section-icon">🗂</span>Answers from the previous form version</h3>
+              <h3 className="section-title">Answers from the previous form version</h3>
               {s.regulatory_compliant && (
                 <div className="grid-2">
                   <Field label="Compliant with applicable regulations?" value={s.regulatory_compliant} />
@@ -202,7 +216,7 @@ export default function SubmissionFormView({ submission: s }) {
         <div className="step-container">
           <StepHeader step="Step 3 of 5" title="Allergen Declaration" />
           <div className="card" style={{ marginBottom: '20px' }}>
-            <h3 className="section-title"><span className="section-icon">🧪</span>Allergen List</h3>
+            <h3 className="section-title">Allergen List</h3>
             <div className="allergen-table-wrapper" style={{ marginBottom: '24px' }}>
               <table className="allergen-table">
                 <thead><tr><th style={{ width: '48px' }}>#</th><th className="allergen-name-col">Allergen</th></tr></thead>
@@ -247,7 +261,7 @@ export default function SubmissionFormView({ submission: s }) {
           </div>
 
           <div className="card">
-            <h3 className="section-title"><span className="section-icon">🏭</span>Facility Practices</h3>
+            <h3 className="section-title">Facility Practices</h3>
             <div className="question-block">
               <label>Do you have documented procedures to prevent cross-contamination?</label>
               <ChoiceButtons
@@ -267,7 +281,7 @@ export default function SubmissionFormView({ submission: s }) {
         <div className="step-container">
           <StepHeader step="Step 4 of 5" title="EU Compliance Declarations" />
           <div className="card" style={{ marginBottom: '20px' }}>
-            <h3 className="section-title"><span className="section-icon">🧪</span>REACH — Substances of Very High Concern (SVHC)</h3>
+            <h3 className="section-title">REACH — Substances of Very High Concern (SVHC)</h3>
             <References items={REACH_REFERENCES} />
             {products.map(p => {
               const svhc = s.svhc_data?.[p.id] || {};
@@ -292,7 +306,7 @@ export default function SubmissionFormView({ submission: s }) {
           </div>
 
           <div className="card" style={{ marginBottom: '20px' }}>
-            <h3 className="section-title"><span className="section-icon">⚡</span>1. RoHS</h3>
+            <h3 className="section-title">1. RoHS</h3>
             <References items={ROHS_REFERENCES} />
             {products.map(p => {
               const rohs = s.rohs_data?.[p.id] || {};
@@ -313,7 +327,7 @@ export default function SubmissionFormView({ submission: s }) {
 
           {DECLARATIONS.map((d, i) => (
             <div key={d.key} className="card" style={{ marginBottom: '20px' }}>
-              <h3 className="section-title"><span className="section-icon">📋</span>{i + 2}. {d.title}</h3>
+              <h3 className="section-title">{i + 2}. {d.title}</h3>
               <div className="declaration-box" style={{ marginBottom: '4px' }}><p>{d.statement}</p></div>
               <References items={d.references} />
               <div className="question-block">
@@ -334,7 +348,7 @@ export default function SubmissionFormView({ submission: s }) {
         <div className="step-container">
           <StepHeader step="Step 5 of 5" title="Declaration & Signature" />
           <div className="card" style={{ marginBottom: '20px' }}>
-            <h3 className="section-title"><span className="section-icon">📜</span>Legal Declaration</h3>
+            <h3 className="section-title">Legal Declaration</h3>
             <div className="declaration-box">
               <p>
                 I, the undersigned, on behalf of the supplier named in this submission, hereby declare that all
@@ -353,7 +367,7 @@ export default function SubmissionFormView({ submission: s }) {
             />
           </div>
           <div className="card">
-            <h3 className="section-title"><span className="section-icon">✍️</span>Signature</h3>
+            <h3 className="section-title">Signature</h3>
             {s.signature_image_path ? (
               <div className="signature-area" style={{ padding: '12px', textAlign: 'center' }}>
                 <img src={s.signature_image_path} alt="Supplier signature" style={{ maxWidth: '100%', maxHeight: '180px' }} />

@@ -124,6 +124,7 @@ function initSchema() {
     kosher_certified: 'TEXT',
     kosher_cert_file_path: 'TEXT',
     kosher_cert_expiry: 'TEXT',
+    nsf_cert_files: "TEXT DEFAULT '[]'",
   });
 
   // Unfinished forms used to default to 'Submitted'

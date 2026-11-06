@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { createSubmission } from '../api';
+import { createSubmission, updateStep1, getSubmission } from '../api';
 import axios from 'axios';
 import { ChoiceButtons, FormErrorBanner, apiErrorMessage } from './FormControls';
 import './Step.css';
@@ -77,9 +77,32 @@ export default function Step1() {
     { product_name: '', product_type: '' }
   ]);
 
+  const existingId = searchParams.get('id');
+
+  useEffect(() => {
+    if (!existingId) return;
+    getSubmission(existingId)
+      .then(res => {
+        const d = res.data;
+        if (d.submission_date) { navigate(`/confirmation/${existingId}`, { replace: true }); return; }
+        setForm({
+          company_name: d.company_name || '',
+          contact_name: d.contact_name || '',
+          contact_email: d.contact_email || '',
+          country: d.country || '',
+          quality_certified: d.quality_certified || '',
+          quality_certifications: d.quality_certifications || '',
+        });
+        if (d.products?.length) {
+          setProducts(d.products.map(p => ({ id: p.id, product_name: p.product_name, product_type: p.product_type })));
+        }
+      })
+      .catch(() => setSaveError('We could not load your saved answers. Please refresh the page.'));
+  }, [existingId]);
+
   useEffect(() => {
     const sid = searchParams.get('sid');
-    if (!sid) return;
+    if (!sid || existingId) return;
     axios.get(`/api/admin/suppliers/prefill/${sid}`)
       .then(res => {
         const d = res.data;
@@ -129,10 +152,15 @@ export default function Step1() {
     setSaveError('');
     setLoading(true);
     try {
-      const res = await createSubmission({ ...form, products, supplier_id: searchParams.get('sid') || undefined });
-      navigate(`/form/step2/${res.data.id}`, {
-        state: { submissionId: res.data.id, products: res.data.products }
-      });
+      if (existingId) {
+        await updateStep1(existingId, { ...form, products });
+        navigate(`/form/step2/${existingId}`);
+      } else {
+        const res = await createSubmission({ ...form, products, supplier_id: searchParams.get('sid') || undefined });
+        // Browser Back from page 2 should reopen this saved submission, not a blank form
+        navigate(`/form/step1?id=${res.data.id}`, { replace: true });
+        navigate(`/form/step2/${res.data.id}`);
+      }
     } catch (err) {
       setSaveError(apiErrorMessage(err));
     } finally {
@@ -184,7 +212,6 @@ export default function Step1() {
       <form onSubmit={handleSubmit} noValidate>
         <div className="card">
           <h3 className="section-title">
-            <span className="section-icon">🏢</span>
             Company Details
           </h3>
 
@@ -266,7 +293,6 @@ export default function Step1() {
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="section-header-row">
             <h3 className="section-title">
-              <span className="section-icon">📦</span>
               Products
             </h3>
             <div className="product-count-badge">{products.length} product{products.length !== 1 ? 's' : ''}</div>

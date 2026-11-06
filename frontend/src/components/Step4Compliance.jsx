@@ -76,6 +76,13 @@ export default function Step4Compliance() {
     setErrors(prev => ({ ...prev, [key]: undefined }));
   };
 
+  const goBack = async () => {
+    setLoading(true);
+    try { await updateStep4Compliance(id, { rohs_data: rohsData, svhc_data: svhcData, declarations }); } catch { /* still allow going back */ }
+    setLoading(false);
+    navigate(`/form/step3/${id}`);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = {};
@@ -123,7 +130,6 @@ export default function Step4Compliance() {
         {/* REACH */}
         <div className="card" style={{ marginBottom: '20px' }}>
           <h3 className="section-title">
-            <span className="section-icon">🧪</span>
             REACH — Substances of Very High Concern (SVHC)
           </h3>
           <p style={{ fontSize: '0.85rem', marginBottom: '4px' }}>
@@ -171,7 +177,6 @@ export default function Step4Compliance() {
         {/* RoHS */}
         <div className="card" style={{ marginBottom: '20px' }}>
           <h3 className="section-title">
-            <span className="section-icon">⚡</span>
             1. RoHS
           </h3>
           <p style={{ fontSize: '0.85rem', marginBottom: '4px' }}>
@@ -225,7 +230,6 @@ export default function Step4Compliance() {
         {DECLARATIONS.map((d, i) => (
           <div key={d.key} className="card" style={{ marginBottom: '20px' }}>
             <h3 className="section-title">
-              <span className="section-icon">📋</span>
               {i + 2}. {d.title}
             </h3>
             <div className="declaration-box" style={{ marginBottom: '4px' }}>
@@ -259,7 +263,7 @@ export default function Step4Compliance() {
         <FormErrorBanner message={saveError} />
 
         <div className="step-actions">
-          <button type="button" className="btn btn-outline step-back-btn" onClick={() => navigate(`/form/step3/${id}`)}>
+          <button type="button" className="btn btn-outline step-back-btn" onClick={goBack} disabled={loading}>
             &larr; Back
           </button>
           <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>

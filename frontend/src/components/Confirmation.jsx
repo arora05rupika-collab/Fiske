@@ -40,7 +40,7 @@ export default function Confirmation() {
 
             {contact_email && (
               <p className="conf-email-note">
-                📧 A confirmation email has been sent to <strong>{contact_email}</strong>
+                A confirmation email has been sent to <strong>{contact_email}</strong>
               </p>
             )}
           </div>

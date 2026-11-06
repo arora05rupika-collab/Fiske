@@ -45,6 +45,10 @@ export default function FormLayout() {
       <main className="form-main">
         <div className="container">
           <Outlet />
+          <div className="form-help-note">
+            For any difficulties or questions, please email{' '}
+            <a href="mailto:rarora@lubriplate.com">rarora@lubriplate.com</a>
+          </div>
         </div>
       </main>
 

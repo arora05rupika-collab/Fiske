@@ -4,6 +4,21 @@ import { updateProduct, getSubmission } from '../api';
 import { FileUpload, ChoiceButtons, FormErrorBanner, apiErrorMessage } from './FormControls';
 import './Step.css';
 
+function nsfFileCount(p) {
+  try {
+    const list = JSON.parse(p.nsf_cert_files || '[]');
+    return list.length || (p.nsf_cert_file_path ? 1 : 0);
+  } catch {
+    return p.nsf_cert_file_path ? 1 : 0;
+  }
+}
+
+function threeYearsFromToday() {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 3);
+  return d.toISOString().split('T')[0];
+}
+
 const MULTI_PRODUCT_CAPTION =
   'If you have one statement or certificate that covers multiple products, please attach it again for each product.';
 
@@ -73,12 +88,26 @@ export default function Step2() {
       else if (answers.halal_certified === 'Yes' && !files.halal_cert_file && !product.halal_cert_file_path) {
         errs.halal_cert_file = 'Please attach the Halal certificate';
       }
+      if (answers.halal_certified === 'Yes' && !answers.halal_cert_expiry) errs.halal_cert_expiry = 'Please enter the expiry date';
       if (!answers.kosher_certified) errs.kosher_certified = 'Please select an answer';
       else if (answers.kosher_certified === 'Yes' && !files.kosher_cert_file && !product.kosher_cert_file_path) {
         errs.kosher_cert_file = 'Please attach the Kosher certificate';
       }
+      if (answers.kosher_certified === 'Yes' && !answers.kosher_cert_expiry) errs.kosher_cert_expiry = 'Please enter the expiry date';
+      if (!files.nsf_cert_files?.length && nsfFileCount(product) === 0) errs.nsf_cert_files = 'Please attach the NSF certificate(s)';
     }
     return errs;
+  };
+
+  const saveProduct = async () => {
+    const formData = new FormData();
+    Object.entries(answers).forEach(([k, v]) => formData.append(k, v || ''));
+    Object.entries(files).forEach(([k, f]) => {
+      if (Array.isArray(f)) f.forEach(file => formData.append(k, file));
+      else if (f) formData.append(k, f);
+    });
+    const res = await updateProduct(id, product.id, formData);
+    setProducts(prev => prev.map(p => (p.id === product.id ? res.data.product : p)));
   };
 
   const handleSubmit = async (e) => {
@@ -93,13 +122,7 @@ export default function Step2() {
     setSaveError('');
     setLoading(true);
     try {
-      const formData = new FormData();
-      Object.entries(answers).forEach(([k, v]) => formData.append(k, v || ''));
-      Object.entries(files).forEach(([k, f]) => { if (f) formData.append(k, f); });
-
-      const res = await updateProduct(id, product.id, formData);
-      setProducts(prev => prev.map(p => (p.id === product.id ? res.data.product : p)));
-
+      await saveProduct();
       if (index < products.length - 1) {
         navigate(`/form/step2/${id}?p=${index + 1}`);
       } else {
@@ -112,9 +135,18 @@ export default function Step2() {
     }
   };
 
-  const goBack = () => {
+  // Back keeps whatever has been filled in so far, without requiring the page to be complete
+  const goBack = async () => {
+    setLoading(true);
+    try {
+      await saveProduct();
+    } catch {
+      /* still allow going back */
+    } finally {
+      setLoading(false);
+    }
     if (index > 0) navigate(`/form/step2/${id}?p=${index - 1}`);
-    else navigate('/form/step1');
+    else navigate(`/form/step1?id=${id}`);
   };
 
   if (fetching) {
@@ -146,7 +178,6 @@ export default function Step2() {
         <div className="card" style={{ marginBottom: '20px' }}>
           <div className="section-header-row">
             <h3 className="section-title">
-              <span className="section-icon">📄</span>
               Product Documents
             </h3>
             <span className={`compliance-product-type-badge ${isFoodGrade ? '' : 'industrial'}`}>{product.product_type}</span>
@@ -160,7 +191,6 @@ export default function Step2() {
 
         <div className="card" style={{ marginBottom: '20px' }}>
           <h3 className="section-title">
-            <span className="section-icon">🔬</span>
             PFAS & MOAH
           </h3>
           <p className="field-caption" style={{ marginTop: 0 }}>{MULTI_PRODUCT_CAPTION}</p>
@@ -187,7 +217,6 @@ export default function Step2() {
         {isFoodGrade && (
           <div className="card" style={{ marginBottom: '20px' }}>
             <h3 className="section-title">
-              <span className="section-icon">🏅</span>
               Food Grade Certifications
             </h3>
             <p className="field-caption" style={{ marginTop: 0 }}>{MULTI_PRODUCT_CAPTION}</p>
@@ -203,8 +232,9 @@ export default function Step2() {
                     {errors.halal_cert_file && <span className="error-msg">{errors.halal_cert_file}</span>}
                   </div>
                   <div className="form-group">
-                    <label>Expiry date</label>
-                    <input type="date" value={answers.halal_cert_expiry} onChange={e => setAnswer('halal_cert_expiry', e.target.value)} />
+                    <label>Expiry date <span className="required">*</span></label>
+                    <input type="date" className={errors.halal_cert_expiry ? 'error' : ''} value={answers.halal_cert_expiry} onChange={e => setAnswer('halal_cert_expiry', e.target.value)} />
+                    {errors.halal_cert_expiry && <span className="error-msg">{errors.halal_cert_expiry}</span>}
                   </div>
                 </div>
               )}
@@ -221,21 +251,38 @@ export default function Step2() {
                     {errors.kosher_cert_file && <span className="error-msg">{errors.kosher_cert_file}</span>}
                   </div>
                   <div className="form-group">
-                    <label>Expiry date</label>
-                    <input type="date" value={answers.kosher_cert_expiry} onChange={e => setAnswer('kosher_cert_expiry', e.target.value)} />
+                    <label>Expiry date <span className="required">*</span></label>
+                    <input type="date" className={errors.kosher_cert_expiry ? 'error' : ''} value={answers.kosher_cert_expiry} onChange={e => setAnswer('kosher_cert_expiry', e.target.value)} />
+                    {errors.kosher_cert_expiry && <span className="error-msg">{errors.kosher_cert_expiry}</span>}
                   </div>
                 </div>
               )}
             </div>
 
             <div className="question-block">
-              <label>NSF Certification</label>
+              <label>NSF Certification <span className="required">*</span></label>
+              <p className="field-caption" style={{ marginTop: 0 }}>
+                If this product has multiple NSF categories, please attach all of the NSF documents (you can select several files at once).
+              </p>
               <div className="grid-2">
-                <FileUpload label="NSF certificate" name="nsf_cert_file" currentFile={product.nsf_cert_file_path} onChange={setFile} />
+                <div>
+                  <FileUpload
+                    label="NSF certificate(s)"
+                    name="nsf_cert_files"
+                    multiple
+                    required
+                    currentFile={nsfFileCount(product) > 0}
+                    currentLabel={`${nsfFileCount(product)} file(s) already uploaded`}
+                    onChange={setFile}
+                    hasError={!!errors.nsf_cert_files}
+                  />
+                  {errors.nsf_cert_files && <span className="error-msg">{errors.nsf_cert_files}</span>}
+                </div>
                 <div>
                   <div className="form-group">
-                    <label>NSF expiry date</label>
-                    <input type="date" value={answers.nsf_cert_expiry} onChange={e => setAnswer('nsf_cert_expiry', e.target.value)} />
+                    <label>NSF expiry date (set automatically)</label>
+                    <input type="date" value={product.nsf_cert_expiry || threeYearsFromToday()} readOnly disabled />
+                    <p className="field-caption" style={{ marginTop: '4px' }}>3 years from the submission date.</p>
                   </div>
                   <div className="form-group">
                     <label>NSF registration number</label>
@@ -250,7 +297,7 @@ export default function Step2() {
         <FormErrorBanner message={saveError} />
 
         <div className="step-actions">
-          <button type="button" className="btn btn-outline step-back-btn" onClick={goBack}>
+          <button type="button" className="btn btn-outline step-back-btn" onClick={goBack} disabled={loading}>
             ← Back
           </button>
           <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>

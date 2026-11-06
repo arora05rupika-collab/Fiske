@@ -97,3 +97,16 @@
   background: rgba(255,255,255,0.1);
   border-color: #fff;
 }
+
+.form-help-note {
+  max-width: 900px;
+  margin: 32px auto 0;
+  padding: 14px 18px;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--gray-600);
+}
+.form-help-note a { color: var(--black); font-weight: 600; }

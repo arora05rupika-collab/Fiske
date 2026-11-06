@@ -28,6 +28,7 @@ api.interceptors.response.use(
 
 // Submission APIs
 export const createSubmission = (data) => api.post('/submissions/step1', data);
+export const updateStep1 = (id, data) => api.patch(`/submissions/${id}/step1`, data);
 export const updateProduct = (id, productId, formData) => api.patch(`/submissions/${id}/products/${productId}`, formData, {
   headers: { 'Content-Type': 'multipart/form-data' }
 });

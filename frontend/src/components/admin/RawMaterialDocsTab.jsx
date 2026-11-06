@@ -3,6 +3,14 @@ import { getRawMaterialDocs, createRawMaterialDoc, updateRawMaterialDoc, deleteR
 
 const DOC_TYPES = ['SDS (Safety Data Sheet)', 'TDS (Technical Data Sheet)', 'NSF Certificate', 'Kosher Certificate', 'Halal Certificate', 'PFAS Statement', 'MOAH Statement', 'COA (Certificate of Analysis)', 'Regulatory Compliance', 'Other'];
 
+const EXPIRY_REQUIRED_TYPES = ['Halal Certificate', 'Kosher Certificate', 'NSF Certificate'];
+
+function threeYearsFromToday() {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 3);
+  return d.toISOString().split('T')[0];
+}
+
 function saveBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -88,6 +96,10 @@ export default function RawMaterialDocsTab() {
   };
 
   const handleSave = async () => {
+    if (EXPIRY_REQUIRED_TYPES.includes(form.document_type) && !form.expiry_date) {
+      setError(`Expiry date is required for ${form.document_type}.`);
+      return;
+    }
     setSaving(true); setError('');
     try {
       if (editingId) {
@@ -207,13 +219,16 @@ export default function RawMaterialDocsTab() {
                 )}
                 <div className="form-field">
                   <label>Document Type</label>
-                  <select value={form.document_type} onChange={e => setForm(f => ({ ...f, document_type: e.target.value }))}>
+                  <select value={form.document_type} onChange={e => {
+                    const type = e.target.value;
+                    setForm(f => ({ ...f, document_type: type, expiry_date: type === 'NSF Certificate' && !f.expiry_date ? threeYearsFromToday() : f.expiry_date }));
+                  }}>
                     <option value="">Select type...</option>
                     {DOC_TYPES.map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div className="form-field">
-                  <label>Expiry Date</label>
+                  <label>Expiry Date{EXPIRY_REQUIRED_TYPES.includes(form.document_type) && ' *'}</label>
                   <input type="date" value={form.expiry_date} onChange={e => setForm(f => ({ ...f, expiry_date: e.target.value }))} />
                 </div>
                 <div className="form-field">
@@ -360,7 +375,7 @@ export default function RawMaterialDocsTab() {
                         {d.expiry_date ? (
                           <span style={{ fontSize: '0.83rem', fontWeight: expired || expiringSoon ? 600 : 400, color: expired ? '#b91c1c' : expiringSoon ? '#92400e' : 'inherit' }}>
                             {new Date(d.expiry_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                            {expired && ' ⚠'}
+                            
                           </span>
                         ) : <span style={{ color: '#aaa' }}>—</span>}
                       </td>

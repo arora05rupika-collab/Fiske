@@ -380,6 +380,8 @@ router.post('/suppliers/:id/send-request', async (req, res) => {
 
 // ─── Raw Material Docs ────────────────────────────────────────────────────────
 
+const EXPIRY_REQUIRED_TYPES = ['Halal Certificate', 'Kosher Certificate', 'NSF Certificate'];
+
 router.get('/raw-material-docs', (req, res) => {
   try {
     const db = getDb();
@@ -394,6 +396,9 @@ router.post('/raw-material-docs', uploadDoc.single('file'), (req, res) => {
   try {
     const db = getDb();
     const { document_type, raw_materials, expiry_date, supplier_id, supplier_name } = req.body;
+    if (EXPIRY_REQUIRED_TYPES.includes(document_type) && !expiry_date) {
+      return res.status(400).json({ error: `Expiry date is required for ${document_type}.` });
+    }
     const id = uuidv4();
     const file_name = req.file ? req.file.originalname : req.body.file_name || '';
     const file_path = req.file ? `/uploads/raw-material-docs/${req.file.filename}` : '';
@@ -413,6 +418,11 @@ router.patch('/raw-material-docs/:id', (req, res) => {
     const { document_type, raw_materials, expiry_date, supplier_id, supplier_name } = req.body;
     const current = db.prepare('SELECT * FROM RawMaterialDocs WHERE id = ?').get(req.params.id);
     if (!current) return res.status(404).json({ error: 'Not found' });
+    const newType = document_type ?? current.document_type;
+    const newExpiry = expiry_date ?? current.expiry_date;
+    if (EXPIRY_REQUIRED_TYPES.includes(newType) && !newExpiry) {
+      return res.status(400).json({ error: `Expiry date is required for ${newType}.` });
+    }
     db.prepare(`
       UPDATE RawMaterialDocs SET document_type=?, raw_materials=?, expiry_date=?, supplier_id=?, supplier_name=?, expiry_notified=0 WHERE id=?
     `).run(

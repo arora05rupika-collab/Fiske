@@ -11,7 +11,7 @@ const sharepoint = require('../sharepoint');
 function uniqueFilename(req, file, cb) {
   const ext = path.extname(file.originalname);
   const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9-_]/g, '_');
-  cb(null, `${base}_${Date.now()}${ext}`);
+  cb(null, `${base}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`);
 }
 
 function allowedFileTypes(req, file, cb) {
@@ -79,6 +79,58 @@ router.post('/step1', (req, res) => {
   }
 });
 
+// Step 1 (returning via Back): update company details and products, keeping saved product data
+router.patch('/:id/step1', (req, res) => {
+  try {
+    const db = getDb();
+    const { id } = req.params;
+    const { company_name, contact_name, contact_email, country, products, quality_certified, quality_certifications } = req.body;
+
+    const submission = db.prepare('SELECT * FROM SupplierSubmissions WHERE id = ?').get(id);
+    if (!submission) return res.status(404).json({ error: 'Submission not found' });
+    if (submission.submission_date) return res.status(400).json({ error: 'This form has already been submitted.' });
+    if (!company_name || !contact_name || !contact_email) {
+      return res.status(400).json({ error: 'Company name, contact name and email are required' });
+    }
+    if (!Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ error: 'At least one product is required' });
+    }
+
+    db.transaction(() => {
+      db.prepare(`
+        UPDATE SupplierSubmissions SET company_name = ?, contact_name = ?, contact_email = ?, country = ?,
+          quality_certified = ?, quality_certifications = ?
+        WHERE id = ?
+      `).run(
+        company_name, contact_name, contact_email, country || null,
+        quality_certified || null, quality_certified === 'Yes' ? (quality_certifications || null) : null, id
+      );
+
+      const existingIds = new Set(db.prepare('SELECT id FROM SupplierProducts WHERE submission_id = ?').all(id).map(r => r.id));
+      const keptIds = new Set();
+      products.forEach((p, index) => {
+        if (p.id && existingIds.has(p.id)) {
+          keptIds.add(p.id);
+          db.prepare('UPDATE SupplierProducts SET product_name = ?, product_type = ?, sort_order = ? WHERE id = ?')
+            .run(p.product_name, p.product_type, index, p.id);
+        } else {
+          db.prepare('INSERT INTO SupplierProducts (id, submission_id, product_name, product_type, sort_order) VALUES (?, ?, ?, ?, ?)')
+            .run(uuidv4(), id, p.product_name, p.product_type, index);
+        }
+      });
+      existingIds.forEach(pid => {
+        if (!keptIds.has(pid)) db.prepare('DELETE FROM SupplierProducts WHERE id = ?').run(pid);
+      });
+    })();
+
+    const saved = db.prepare('SELECT * FROM SupplierProducts WHERE submission_id = ? ORDER BY sort_order').all(id);
+    res.json({ id, reference_number: submission.reference_number, products: saved });
+  } catch (err) {
+    console.error('Step 1 update error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Step 2: Save one product's documents and answers
 const productUpload = multer({
   storage: multer.diskStorage({
@@ -92,8 +144,10 @@ const productUpload = multer({
   }),
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: allowedFileTypes,
-}).fields(['sds_file', 'tds_file', 'nsf_cert_file', 'halal_cert_file', 'kosher_cert_file', 'pfas_file', 'moah_file']
-  .map(name => ({ name, maxCount: 1 })));
+}).fields([
+  ...['sds_file', 'tds_file', 'halal_cert_file', 'kosher_cert_file', 'pfas_file', 'moah_file'].map(name => ({ name, maxCount: 1 })),
+  { name: 'nsf_cert_files', maxCount: 10 },
+]);
 
 function handleProductUpload(req, res, next) {
   productUpload(req, res, (err) => {
@@ -120,6 +174,12 @@ router.patch('/:id/products/:pid', handleProductUpload, (req, res) => {
     const halal = body.halal_certified || null;
     const kosher = body.kosher_certified || null;
 
+    // New NSF uploads replace the previous set (a supplier may have several NSF categories)
+    const nsfPaths = (files.nsf_cert_files || []).map(f => f.path.replace(path.join(__dirname, '..'), '').split(path.sep).join('/'));
+    const nsfFilesJson = nsfPaths.length ? JSON.stringify(nsfPaths) : null;
+    const hasNsf = nsfPaths.length > 0 || !!product.nsf_cert_file_path;
+    const nsfExpiry = hasNsf ? (product.nsf_cert_expiry || nsfExpiryFrom(new Date())) : null;
+
     db.prepare(`
       UPDATE SupplierProducts SET
         pfas_free = ?, pfas_file_path = COALESCE(?, pfas_file_path),
@@ -127,6 +187,7 @@ router.patch('/:id/products/:pid', handleProductUpload, (req, res) => {
         sds_file_path = COALESCE(?, sds_file_path),
         tds_file_path = COALESCE(?, tds_file_path),
         nsf_cert_file_path = COALESCE(?, nsf_cert_file_path),
+        nsf_cert_files = COALESCE(?, nsf_cert_files),
         nsf_cert_expiry = ?, nsf_registration_number = ?,
         halal_certified = ?, halal_cert_file_path = COALESCE(?, halal_cert_file_path), halal_cert_expiry = ?,
         kosher_certified = ?, kosher_cert_file_path = COALESCE(?, kosher_cert_file_path), kosher_cert_expiry = ?
@@ -136,8 +197,9 @@ router.patch('/:id/products/:pid', handleProductUpload, (req, res) => {
       body.moah_free || null, filePath('moah_file'),
       filePath('sds_file'),
       filePath('tds_file'),
-      filePath('nsf_cert_file'),
-      body.nsf_cert_expiry || null, body.nsf_registration_number || null,
+      nsfPaths[0] || null,
+      nsfFilesJson,
+      nsfExpiry, body.nsf_registration_number || null,
       halal, filePath('halal_cert_file'), halal === 'Yes' ? (body.halal_cert_expiry || null) : null,
       kosher, filePath('kosher_cert_file'), kosher === 'Yes' ? (body.kosher_cert_expiry || null) : null,
       pid
@@ -262,6 +324,10 @@ router.patch('/:id/step4', signatureUpload.single('signature_image'), async (req
 
     const submissionDate = new Date().toISOString();
 
+    // NSF certificates are valid for three years from the submission date
+    db.prepare(`UPDATE SupplierProducts SET nsf_cert_expiry = ? WHERE submission_id = ? AND nsf_cert_file_path IS NOT NULL`)
+      .run(nsfExpiryFrom(new Date(submissionDate)), id);
+
     db.prepare(`
       UPDATE SupplierSubmissions SET
         signatory_name = ?,
@@ -331,6 +397,19 @@ router.get('/:id', (req, res) => {
   }
 });
 
+function nsfExpiryFrom(date) {
+  const d = new Date(date);
+  d.setFullYear(d.getFullYear() + 3);
+  return d.toISOString().split('T')[0];
+}
+
+function nsfFilesOf(product) {
+  let list = [];
+  try { list = JSON.parse(product.nsf_cert_files || '[]'); } catch { /* ignore */ }
+  if (list.length === 0 && product.nsf_cert_file_path) list = [product.nsf_cert_file_path];
+  return list;
+}
+
 function findSupplierForSubmission(db, submission) {
   if (submission.supplier_id) {
     const byId = db.prepare('SELECT * FROM Suppliers WHERE id = ?').get(submission.supplier_id);
@@ -367,12 +446,14 @@ function fileSubmissionDocs(db, submission, products) {
     const docs = [
       [product.sds_file_path, 'SDS', 'SDS (Safety Data Sheet)', null],
       [product.tds_file_path, 'TDS', 'TDS (Technical Data Sheet)', null],
-      [product.nsf_cert_file_path, 'NSF Certificate', 'NSF Certificate', product.nsf_cert_expiry],
       [product.halal_certified === 'Yes' && product.halal_cert_file_path, 'Halal Certificate', 'Halal Certificate', product.halal_cert_expiry],
       [product.kosher_certified === 'Yes' && product.kosher_cert_file_path, 'Kosher Certificate', 'Kosher Certificate', product.kosher_cert_expiry],
       [product.pfas_file_path, 'PFAS Statement', 'PFAS Statement', null],
       [product.moah_file_path, 'MOAH Statement', 'MOAH Statement', null],
     ];
+    nsfFilesOf(product).forEach((nsfPath, i, all) => {
+      docs.push([nsfPath, all.length > 1 ? `NSF Certificate ${i + 1}` : 'NSF Certificate', 'NSF Certificate', product.nsf_cert_expiry]);
+    });
     docs.forEach(([filePath, label, docType, expiry]) => {
       if (!filePath) return;
       insertDoc.run(uuidv4(), `${product.product_name} - ${label}`, filePath, docType, rm, expiry || null, supplierId, supplierName);

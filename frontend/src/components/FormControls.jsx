@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 
-export function FileUpload({ label, name, currentFile, onChange, required, hasError }) {
+export function FileUpload({ label, name, currentFile, onChange, required, hasError, multiple, currentLabel }) {
   const [fileName, setFileName] = useState('');
 
   const handleChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFileName(file.name);
-      onChange(name, file);
-    }
+    const picked = Array.from(e.target.files || []);
+    if (picked.length === 0) return;
+    setFileName(picked.map(f => f.name).join(', '));
+    onChange(name, multiple ? picked : picked[0]);
   };
 
   return (
@@ -16,12 +15,12 @@ export function FileUpload({ label, name, currentFile, onChange, required, hasEr
       <label>{label}{required && <span className="required"> *</span>}</label>
       <label className="file-upload-label">
         <div className={`file-upload-box ${fileName || currentFile ? 'has-file' : ''} ${hasError ? 'upload-error' : ''}`}>
-          <input type="file" name={name} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={handleChange} />
-          <div className="file-upload-icon">{fileName || currentFile ? '✓' : '📄'}</div>
+          <input type="file" name={name} multiple={multiple} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={handleChange} />
+          {(fileName || currentFile) && <div className="file-upload-icon">✓</div>}
           {fileName ? (
             <div className="file-name">{fileName}</div>
           ) : currentFile ? (
-            <div className="file-name">File already uploaded — click to replace</div>
+            <div className="file-name">{currentLabel || 'File already uploaded'} — click to replace</div>
           ) : (
             <div className="file-upload-text">Click to upload PDF, JPG, PNG, DOC<br />(max 20MB)</div>
           )}
