@@ -107,6 +107,34 @@ function initSchema() {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  addColumns('SupplierSubmissions', {
+    supplier_id: 'TEXT',
+    quality_certified: 'TEXT',
+    quality_certifications: 'TEXT',
+    allergens_in_products: 'TEXT',
+    allergens_in_plant: 'TEXT',
+  });
+  addColumns('SupplierProducts', {
+    pfas_file_path: 'TEXT',
+    moah_file_path: 'TEXT',
+    halal_certified: 'TEXT',
+    halal_cert_file_path: 'TEXT',
+    halal_cert_expiry: 'TEXT',
+    kosher_certified: 'TEXT',
+    kosher_cert_file_path: 'TEXT',
+    kosher_cert_expiry: 'TEXT',
+  });
+
+  // Unfinished forms used to default to 'Submitted'
+  db.prepare("UPDATE SupplierSubmissions SET status = 'In Progress' WHERE submission_date IS NULL AND status = 'Submitted'").run();
+}
+
+function addColumns(table, columns) {
+  const existing = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name));
+  for (const [name, type] of Object.entries(columns)) {
+    if (!existing.has(name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`);
+  }
 }
 
 module.exports = { getDb };

@@ -249,6 +249,10 @@ class SharePointService {
       await upload(product.sds_file_path, `${safeName}_SDS`);
       await upload(product.tds_file_path, `${safeName}_TDS`);
       await upload(product.nsf_cert_file_path, `${safeName}_NSF_Certificate`);
+      await upload(product.halal_cert_file_path, `${safeName}_Halal_Certificate`);
+      await upload(product.kosher_cert_file_path, `${safeName}_Kosher_Certificate`);
+      await upload(product.pfas_file_path, `${safeName}_PFAS_Statement`);
+      await upload(product.moah_file_path, `${safeName}_MOAH_Statement`);
     }
   }
 }

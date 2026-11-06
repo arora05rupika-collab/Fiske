@@ -28,7 +28,7 @@ api.interceptors.response.use(
 
 // Submission APIs
 export const createSubmission = (data) => api.post('/submissions/step1', data);
-export const updateStep2 = (id, formData) => api.patch(`/submissions/${id}/step2`, formData, {
+export const updateProduct = (id, productId, formData) => api.patch(`/submissions/${id}/products/${productId}`, formData, {
   headers: { 'Content-Type': 'multipart/form-data' }
 });
 export const updateStep3 = (id, data) => api.patch(`/submissions/${id}/step3`, data);
@@ -69,5 +69,9 @@ export const createRawMaterialDoc = (formData) => api.post('/admin/raw-material-
 export const updateRawMaterialDoc = (id, data) => api.patch(`/admin/raw-material-docs/${id}`, data);
 export const deleteRawMaterialDoc = (id) => api.delete(`/admin/raw-material-docs/${id}`);
 export const checkDocExpiry = () => api.post('/admin/raw-material-docs/check-expiry');
+export const downloadRawMaterialDocs = (ids, mode) => api.post('/admin/raw-material-docs/download', { ids, mode }, {
+  responseType: 'blob',
+  timeout: 120000
+});
 
 export default api;

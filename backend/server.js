@@ -18,9 +18,10 @@ const generalLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' }
 });
 
+// Each product gets its own save request, so a multi-product form needs headroom
 const submissionLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20,
+  max: 200,
   message: { error: 'Too many submissions from this IP, please try again later.' }
 });
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import SignaturePad from 'signature_pad';
 import { updateStep4, getSubmission } from '../api';
+import { FormErrorBanner, apiErrorMessage } from './FormControls';
 import './Step.css';
 
 export default function Step4() {
@@ -19,6 +20,7 @@ export default function Step4() {
   const [signatoryTitle, setSignatoryTitle] = useState('');
   const [authorised, setAuthorised] = useState(false);
   const [errors, setErrors] = useState({});
+  const [saveError, setSaveError] = useState('');
 
   const today = new Date().toLocaleDateString('en-GB', {
     day: '2-digit', month: 'long', year: 'numeric'
@@ -90,9 +92,11 @@ export default function Step4() {
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
+      setSaveError('Please complete the highlighted fields before submitting.');
       return;
     }
 
+    setSaveError('');
     setLoading(true);
     try {
       const formData = new FormData();
@@ -112,7 +116,7 @@ export default function Step4() {
         }
       });
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to submit. Please try again.');
+      setSaveError(apiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -170,7 +174,7 @@ export default function Step4() {
                 type="text"
                 value={signatoryName}
                 onChange={e => { setSignatoryName(e.target.value); setErrors({...errors, signatoryName: undefined}); }}
-                placeholder="Full legal name"
+                placeholder="Full name"
                 className={errors.signatoryName ? 'error' : ''}
               />
               {errors.signatoryName && <span className="error-msg">{errors.signatoryName}</span>}
@@ -235,6 +239,8 @@ export default function Step4() {
           </label>
           {errors.authorised && <span className="error-msg" style={{ marginTop: '8px', display: 'block' }}>{errors.authorised}</span>}
         </div>
+
+        <FormErrorBanner message={saveError} />
 
         <div className="step-actions">
           <button type="button" className="btn btn-outline step-back-btn" onClick={() => navigate(-1)}>

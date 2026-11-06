@@ -3,7 +3,7 @@ import './ProgressBar.css';
 
 const STEPS = [
   { number: 1, label: 'Company Info' },
-  { number: 2, label: 'Compliance & Certs' },
+  { number: 2, label: 'Product Documents' },
   { number: 3, label: 'Allergens' },
   { number: 4, label: 'EU Compliance' },
   { number: 5, label: 'Declaration' }

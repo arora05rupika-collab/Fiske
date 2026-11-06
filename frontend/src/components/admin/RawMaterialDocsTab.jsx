@@ -1,7 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { getRawMaterialDocs, createRawMaterialDoc, updateRawMaterialDoc, deleteRawMaterialDoc, checkDocExpiry, getSuppliers, getRawMaterials } from '../../api/index';
+import { getRawMaterialDocs, createRawMaterialDoc, updateRawMaterialDoc, deleteRawMaterialDoc, checkDocExpiry, getSuppliers, getRawMaterials, downloadRawMaterialDocs } from '../../api/index';
 
-const DOC_TYPES = ['SDS (Safety Data Sheet)', 'TDS (Technical Data Sheet)', 'NSF Certificate', 'Kosher Certificate', 'Halal Certificate', 'COA (Certificate of Analysis)', 'Regulatory Compliance', 'Other'];
+const DOC_TYPES = ['SDS (Safety Data Sheet)', 'TDS (Technical Data Sheet)', 'NSF Certificate', 'Kosher Certificate', 'Halal Certificate', 'PFAS Statement', 'MOAH Statement', 'COA (Certificate of Analysis)', 'Regulatory Compliance', 'Other'];
+
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function blobErrorMessage(err, fallback) {
+  const data = err?.response?.data;
+  if (data instanceof Blob) {
+    try { return JSON.parse(await data.text()).error || fallback; } catch { return fallback; }
+  }
+  return data?.error || fallback;
+}
 
 const emptyForm = { document_type: '', raw_material_ids: [], expiry_date: '', supplier_id: '', supplier_name: '', file: null };
 
@@ -24,6 +43,10 @@ export default function RawMaterialDocsTab() {
   const [checkingExpiry, setCheckingExpiry] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [downloading, setDownloading] = useState('');
+  const [notice, setNotice] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -88,7 +111,7 @@ export default function RawMaterialDocsTab() {
 
   const handleDelete = async (id, name) => {
     if (!window.confirm(`Delete document "${name}"?`)) return;
-    try { await deleteRawMaterialDoc(id); setDocs(p => p.filter(d => d.id !== id)); }
+    try { await deleteRawMaterialDoc(id); setDocs(p => p.filter(d => d.id !== id)); setSelectedIds(p => p.filter(x => x !== id)); }
     catch { alert('Failed to delete document.'); }
   };
 
@@ -105,10 +128,37 @@ export default function RawMaterialDocsTab() {
   const rmById = (id) => allMaterials.find(m => m.id === id);
 
   const filtered = docs.filter(d => {
+    if (typeFilter && d.document_type !== typeFilter) return false;
     if (!search) return true;
     const s = search.toLowerCase();
     return d.file_name?.toLowerCase().includes(s) || d.supplier_name?.toLowerCase().includes(s) || d.document_type?.toLowerCase().includes(s) || d.raw_materials?.toLowerCase().includes(s);
   });
+
+  const typeOptions = [...new Set([...DOC_TYPES, ...docs.map(d => d.document_type).filter(Boolean)])];
+  const filteredIds = filtered.map(d => d.id);
+  const allFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIds.includes(id));
+  const toggleSelected = (id) => setSelectedIds(p => (p.includes(id) ? p.filter(x => x !== id) : [...p, id]));
+  const toggleSelectAll = () => setSelectedIds(p => (
+    allFilteredSelected ? p.filter(id => !filteredIds.includes(id)) : [...new Set([...p, ...filteredIds])]
+  ));
+
+  const handleDownload = async (mode) => {
+    setDownloading(mode); setNotice(null);
+    try {
+      const ordered = docs.filter(d => selectedIds.includes(d.id)).map(d => d.id);
+      const res = await downloadRawMaterialDocs(ordered, mode);
+      saveBlob(res.data, mode === 'merge' ? 'raw-material-documents.pdf' : 'raw-material-documents.zip');
+      let skipped = [];
+      try { skipped = JSON.parse(decodeURIComponent(res.headers['x-skipped-files'] || '%5B%5D')); } catch { /* header missing */ }
+      setNotice(skipped.length
+        ? { type: 'warn', text: `Downloaded. ${skipped.length} file(s) could not be included${mode === 'merge' ? ' (only PDF, JPG and PNG files can be combined)' : ' (file not found on server)'}: ${skipped.join(', ')}` }
+        : { type: 'ok', text: `Downloaded ${ordered.length} document(s).` });
+    } catch (e) {
+      setNotice({ type: 'error', text: await blobErrorMessage(e, 'Download failed. Please try again.') });
+    } finally {
+      setDownloading('');
+    }
+  };
 
   // Available materials for the currently selected supplier (or all if none)
   const availableMaterials = form.supplier_id
@@ -209,12 +259,41 @@ export default function RawMaterialDocsTab() {
         </div>
       )}
 
-      <div className="docs-search-bar" style={{ marginBottom: '12px' }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' }}>
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input type="text" placeholder="Search by file name, supplier, document type, or R-code..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: '36px' }} />
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
+        <div className="docs-search-bar" style={{ flex: '1 1 320px', marginBottom: 0 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' }}>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" placeholder="Search by file name, supplier, document type, or R-code..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: '36px' }} />
+        </div>
+        <select className="docs-type-filter" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+          <option value="">All document types</option>
+          {typeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
       </div>
+
+      <div className="docs-bulk-bar">
+        <span className="docs-bulk-count">
+          {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Tick documents in the left column to download them'}
+        </span>
+        {selectedIds.length > 0 && (
+          <button className="btn btn-ghost btn-sm" onClick={() => setSelectedIds([])}>Clear selection</button>
+        )}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button className="btn btn-outline btn-sm" disabled={!selectedIds.length || !!downloading} onClick={() => handleDownload('merge')}>
+            {downloading === 'merge' ? 'Combining...' : 'Combine into one PDF'}
+          </button>
+          <button className="btn btn-outline btn-sm" disabled={!selectedIds.length || !!downloading} onClick={() => handleDownload('zip')}>
+            {downloading === 'zip' ? 'Preparing...' : 'Download as individual files (.zip)'}
+          </button>
+        </div>
+      </div>
+      {notice && (
+        <div className={`docs-notice docs-notice-${notice.type}`}>
+          {notice.text}
+          <button className="modal-close" style={{ marginLeft: 'auto' }} onClick={() => setNotice(null)}>✕</button>
+        </div>
+      )}
 
       <div className="table-card">
         {loading ? (
@@ -225,13 +304,16 @@ export default function RawMaterialDocsTab() {
         ) : filtered.length === 0 ? (
           <div className="table-empty">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            <p>{search ? 'No documents match your search.' : 'No documents uploaded yet.'}</p>
+            <p>{search || typeFilter ? 'No documents match your search or filter.' : 'No documents uploaded yet.'}</p>
           </div>
         ) : (
           <div className="table-wrapper">
             <table className="data-table">
               <thead>
                 <tr>
+                  <th style={{ width: '36px' }}>
+                    <input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAll} title="Select all shown" className="docs-checkbox" />
+                  </th>
                   <th>File Name</th>
                   <th>Document Type</th>
                   <th>Raw Materials</th>
@@ -247,7 +329,10 @@ export default function RawMaterialDocsTab() {
                   const expired = isExpired(d.expiry_date);
                   const expiringSoon = !expired && isExpiringSoon(d.expiry_date);
                   return (
-                    <tr key={d.id} className={expired ? 'row-expired' : expiringSoon ? 'row-expiring' : ''}>
+                    <tr key={d.id} className={`${expired ? 'row-expired' : expiringSoon ? 'row-expiring' : ''} ${selectedIds.includes(d.id) ? 'row-selected' : ''}`}>
+                      <td>
+                        <input type="checkbox" checked={selectedIds.includes(d.id)} onChange={() => toggleSelected(d.id)} className="docs-checkbox" />
+                      </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>

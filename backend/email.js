@@ -49,7 +49,7 @@ async function sendEmail({ to, subject, html }) {
 }
 
 const FOOTER = `<div style="background:#1A1A1A;padding:15px;text-align:center;"><p style="color:#888;margin:0;font-size:12px;">© ${new Date().getFullYear()} Lubriplate Lubricants Company. All rights reserved.</p></div>`;
-const HEADER = `<div style="background:#CC0000;padding:18px 24px;text-align:center;"><img src="${APP_URL}/lubriplate-logo.svg" alt="Lubriplate" style="height:60px;max-width:280px;" onerror="this.style.display='none';this.nextSibling.style.display='block'"/><div style="display:none"><h1 style="color:#fff;margin:0;font-family:Arial Black,sans-serif;letter-spacing:3px;">LUBRIPLATE</h1><p style="color:#fff;margin:4px 0 0;font-size:11px;letter-spacing:3px;opacity:0.9;">LUBRICANTS COMPANY</p></div></div>`;
+const HEADER = `<div style="background:#1F3A5F;padding:18px 24px;text-align:center;"><img src="${APP_URL}/lubriplate-logo.svg" alt="Lubriplate" style="height:60px;max-width:280px;" onerror="this.style.display='none';this.nextSibling.style.display='block'"/><div style="display:none"><h1 style="color:#fff;margin:0;font-family:Arial Black,sans-serif;letter-spacing:3px;">LUBRIPLATE</h1><p style="color:#fff;margin:4px 0 0;font-size:11px;letter-spacing:3px;opacity:0.9;">LUBRICANTS COMPANY</p></div></div>`;
 
 async function sendConfirmationEmail(submission, products) {
   await sendEmail({
@@ -62,7 +62,7 @@ async function sendConfirmationEmail(submission, products) {
         <p>Dear ${submission.contact_name},</p>
         <p>Thank you for submitting your compliance information. Your submission has been received and is under review.</p>
         <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:20px;margin:20px 0;">
-          <h3 style="color:#CC0000;margin-top:0;">Submission Details</h3>
+          <h3 style="color:#1F3A5F;margin-top:0;">Submission Details</h3>
           <p><strong>Reference Number:</strong> ${submission.reference_number}</p>
           <p><strong>Company:</strong> ${submission.company_name}</p>
           <p><strong>Submitted:</strong> ${new Date(submission.submission_date).toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</p>
@@ -95,7 +95,7 @@ async function sendTeamNotificationEmail(submission, products) {
           <ul>${products.map(p=>`<li>${p.product_name} — ${p.product_type}</li>`).join('')}</ul>
           <p><strong>Submitted:</strong> ${new Date(submission.submission_date).toLocaleString()}</p>
         </div>
-        <a href="${dashboardUrl}" style="display:inline-block;background:#CC0000;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;">View in Dashboard →</a>
+        <a href="${dashboardUrl}" style="display:inline-block;background:#1F3A5F;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;">View in Dashboard →</a>
       </div>
       ${FOOTER}</div>`
   });
@@ -130,9 +130,9 @@ async function sendSupplierRequestEmail(supplier) {
         For each material, please provide SDS, TDS, and NSF certificate where applicable.</p>
         ` : '<p>Please submit relevant compliance documents for all materials you supply.</p>'}
         <div style="margin:28px 0;text-align:center;">
-          <a href="${formLink}" style="display:inline-block;background:#CC0000;color:white;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;">Submit Compliance Form →</a>
+          <a href="${formLink}" style="display:inline-block;background:#1F3A5F;color:white;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;">Submit Compliance Form →</a>
         </div>
-        <p style="font-size:12px;color:#888;">If the button above doesn't work, copy and paste this link into your browser:<br><a href="${formLink}" style="color:#CC0000;">${formLink}</a></p>
+        <p style="font-size:12px;color:#888;">If the button above doesn't work, copy and paste this link into your browser:<br><a href="${formLink}" style="color:#1F3A5F;">${formLink}</a></p>
         <p style="margin-top:30px;">Best regards,<br><strong>Lubriplate Quality Team</strong><br>rarora@lubriplate.com</p>
       </div>
       ${FOOTER}</div>`
@@ -147,7 +147,7 @@ async function sendDocumentExpiryEmail(doc, supplierEmail) {
     html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
       ${HEADER}
       <div style="padding:30px;background:#f9f9f9;">
-        <h2 style="color:#CC0000;">Document Expiry Notice</h2>
+        <h2 style="color:#1F3A5F;">Document Expiry Notice</h2>
         <p>Dear ${doc.supplier_name},</p>
         <p>The following compliance document has expired or is about to expire:</p>
         <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:20px;margin:20px 0;">

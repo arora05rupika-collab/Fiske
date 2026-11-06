@@ -7,6 +7,8 @@ const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
 const XLSX = require('xlsx');
+const archiver = require('archiver');
+const { PDFDocument } = require('pdf-lib');
 const { sendSupplierRequestEmail, sendDocumentExpiryEmail } = require('../email');
 
 const docStorage = multer.diskStorage({
@@ -155,8 +157,10 @@ router.get('/submissions/:id', (req, res) => {
 
     const products = db.prepare('SELECT * FROM SupplierProducts WHERE submission_id = ? ORDER BY sort_order').all(req.params.id);
     const allergens = db.prepare('SELECT * FROM SupplierAllergens WHERE submission_id = ?').all(req.params.id);
+    let compliance = {};
+    try { compliance = JSON.parse(submission.eu_compliance_data || '{}'); } catch { /* ignore malformed */ }
 
-    res.json({ ...submission, products, allergens });
+    res.json({ ...submission, ...compliance, products, allergens });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -167,7 +171,8 @@ router.patch('/submissions/:id/status', (req, res) => {
   try {
     const db = getDb();
     const { status } = req.body;
-    const validStatuses = ['Submitted', 'Under Review', 'Approved', 'Rejected'];
+    // 'Submitted' / 'In Progress' are set automatically by the supplier form
+    const validStatuses = ['Under Review', 'Approved', 'Rejected'];
 
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
@@ -200,10 +205,11 @@ router.patch('/submissions/:id/archive', (req, res) => {
   try {
     const db = getDb();
     const { archived } = req.body;
-    const result = db.prepare('UPDATE SupplierSubmissions SET status = ? WHERE id = ?')
-      .run(archived ? 'Archived' : 'Submitted', req.params.id);
-    if (result.changes === 0) return res.status(404).json({ error: 'Not found' });
-    res.json({ success: true, status: archived ? 'Archived' : 'Submitted' });
+    const current = db.prepare('SELECT submission_date FROM SupplierSubmissions WHERE id = ?').get(req.params.id);
+    if (!current) return res.status(404).json({ error: 'Not found' });
+    const status = archived ? 'Archived' : (current.submission_date ? 'Submitted' : 'In Progress');
+    db.prepare('UPDATE SupplierSubmissions SET status = ? WHERE id = ?').run(status, req.params.id);
+    res.json({ success: true, status });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -219,8 +225,8 @@ router.get('/export', (req, res) => {
       SELECT
         s.reference_number, s.company_name, s.contact_name, s.contact_email,
         s.country, s.submission_date, s.status,
-        s.regulatory_compliant, s.regulatory_penalties, s.penalty_details,
-        s.kosher_cert_na, s.halal_cert_na,
+        s.quality_certified, s.quality_certifications,
+        s.allergens_in_products, s.allergens_in_plant,
         s.cross_contamination_procedures, s.wheat_starch_packaging,
         s.signatory_name, s.signatory_title,
         COUNT(p.id) as product_count,
@@ -243,8 +249,8 @@ router.get('/export', (req, res) => {
     const headers = [
       'Reference #', 'Company Name', 'Contact Name', 'Email', 'Country',
       'Submission Date', 'Status', 'Products', 'Product Types', 'Product Count',
-      'Regulatory Compliant', 'Regulatory Penalties', 'Penalty Details',
-      'Kosher N/A', 'Halal N/A', 'Cross-Contamination Procedures', 'Wheat Starch Packaging',
+      'Quality System Certified', 'Quality Certifications',
+      'Products Contain Allergens', 'Allergens In Plant', 'Cross-Contamination Procedures', 'Wheat Starch Packaging',
       'Signatory Name', 'Signatory Title'
     ];
 
@@ -252,8 +258,8 @@ router.get('/export', (req, res) => {
       r.reference_number, r.company_name, r.contact_name, r.contact_email,
       r.country, r.submission_date ? new Date(r.submission_date).toLocaleDateString() : '',
       r.status, r.products, r.product_types, r.product_count,
-      r.regulatory_compliant, r.regulatory_penalties, r.penalty_details,
-      r.kosher_cert_na ? 'Yes' : 'No', r.halal_cert_na ? 'Yes' : 'No',
+      r.quality_certified, r.quality_certifications,
+      r.allergens_in_products, r.allergens_in_plant,
       r.cross_contamination_procedures, r.wheat_starch_packaging,
       r.signatory_name, r.signatory_title
     ]);
@@ -436,6 +442,94 @@ router.delete('/raw-material-docs/:id', (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+const UPLOADS_DIR = path.resolve(__dirname, '..', 'uploads');
+
+function resolveUpload(filePath) {
+  if (!filePath) return null;
+  const abs = path.resolve(path.join(__dirname, '..', filePath.replace(/^\/+/, '')));
+  if (!abs.startsWith(UPLOADS_DIR + path.sep) || !fs.existsSync(abs)) return null;
+  return abs;
+}
+
+function downloadName(doc, used) {
+  const ext = path.extname(doc.file_path || '') || '.pdf';
+  const label = (doc.file_name || 'document').replace(/\.[a-z0-9]+$/i, '');
+  const base = label.replace(/[^a-zA-Z0-9 ._()-]/g, '_').trim() || 'document';
+  let name = `${base}${ext}`;
+  for (let n = 2; used.has(name.toLowerCase()); n++) name = `${base} (${n})${ext}`;
+  used.add(name.toLowerCase());
+  return name;
+}
+
+// POST { ids: [...], mode: 'merge' | 'zip' }
+router.post('/raw-material-docs/download', async (req, res) => {
+  try {
+    const db = getDb();
+    const { ids, mode } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'No documents selected' });
+
+    const byId = new Map(db.prepare(`SELECT * FROM RawMaterialDocs WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids).map(d => [d.id, d]));
+    const docs = ids.map(id => byId.get(id)).filter(Boolean);
+    const skipped = [];
+
+    if (mode === 'merge') {
+      const merged = await PDFDocument.create();
+      for (const doc of docs) {
+        const abs = resolveUpload(doc.file_path);
+        const ext = path.extname(doc.file_path || '').toLowerCase();
+        if (!abs) { skipped.push(doc.file_name); continue; }
+        try {
+          const bytes = fs.readFileSync(abs);
+          if (ext === '.pdf') {
+            const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+            const pages = await merged.copyPages(src, src.getPageIndices());
+            pages.forEach(p => merged.addPage(p));
+          } else if (ext === '.jpg' || ext === '.jpeg' || ext === '.png') {
+            const img = ext === '.png' ? await merged.embedPng(bytes) : await merged.embedJpg(bytes);
+            const scale = Math.min(1, 595 / img.width, 842 / img.height);
+            const page = merged.addPage([595, 842]);
+            const w = img.width * scale, h = img.height * scale;
+            page.drawImage(img, { x: (595 - w) / 2, y: (842 - h) / 2, width: w, height: h });
+          } else {
+            skipped.push(doc.file_name);
+          }
+        } catch (e) {
+          console.error(`Merge skipped ${doc.file_name}:`, e.message);
+          skipped.push(doc.file_name);
+        }
+      }
+      if (merged.getPageCount() === 0) {
+        return res.status(400).json({ error: 'None of the selected files could be combined into a PDF (only PDF, JPG and PNG files can be merged).' });
+      }
+      const out = await merged.save();
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="raw-material-documents.pdf"');
+      res.setHeader('X-Skipped-Files', encodeURIComponent(JSON.stringify(skipped)));
+      res.setHeader('Access-Control-Expose-Headers', 'X-Skipped-Files');
+      return res.send(Buffer.from(out));
+    }
+
+    const found = docs.map(d => ({ doc: d, abs: resolveUpload(d.file_path) }));
+    found.filter(f => !f.abs).forEach(f => skipped.push(f.doc.file_name));
+    const files = found.filter(f => f.abs);
+    if (files.length === 0) return res.status(404).json({ error: 'None of the selected files were found on the server.' });
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="raw-material-documents.zip"');
+    res.setHeader('X-Skipped-Files', encodeURIComponent(JSON.stringify(skipped)));
+    res.setHeader('Access-Control-Expose-Headers', 'X-Skipped-Files');
+    const zip = archiver('zip', { zlib: { level: 6 } });
+    zip.on('error', err => { console.error('Zip error:', err); res.destroy(err); });
+    zip.pipe(res);
+    const used = new Set();
+    files.forEach(({ doc, abs }) => zip.file(abs, { name: downloadName(doc, used) }));
+    await zip.finalize();
+  } catch (err) {
+    console.error('Doc download error:', err);
+    if (!res.headersSent) res.status(500).json({ error: err.message });
   }
 });
 

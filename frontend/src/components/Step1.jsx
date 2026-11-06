@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createSubmission } from '../api';
 import axios from 'axios';
+import { ChoiceButtons, FormErrorBanner, apiErrorMessage } from './FormControls';
 import './Step.css';
 
 const COUNTRIES = [
@@ -61,12 +62,15 @@ export default function Step1() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [prefilled, setPrefilled] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   const [form, setForm] = useState({
     company_name: '',
     contact_name: '',
     contact_email: '',
     country: '',
+    quality_certified: '',
+    quality_certifications: '',
   });
 
   const [products, setProducts] = useState([
@@ -100,6 +104,10 @@ export default function Step1() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email)) {
       newErrors.contact_email = 'Invalid email address';
     }
+    if (!form.quality_certified) newErrors.quality_certified = 'Please select Yes or No';
+    else if (form.quality_certified === 'Yes' && !form.quality_certifications.trim()) {
+      newErrors.quality_certifications = 'Please list your certifications';
+    }
 
     products.forEach((p, i) => {
       if (!p.product_name.trim()) newErrors[`product_name_${i}`] = 'Required';
@@ -114,17 +122,19 @@ export default function Step1() {
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
+      setSaveError('Please complete the highlighted fields before continuing.');
       return;
     }
 
+    setSaveError('');
     setLoading(true);
     try {
-      const res = await createSubmission({ ...form, products });
+      const res = await createSubmission({ ...form, products, supplier_id: searchParams.get('sid') || undefined });
       navigate(`/form/step2/${res.data.id}`, {
         state: { submissionId: res.data.id, products: res.data.products }
       });
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to save. Please try again.');
+      setSaveError(apiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -228,6 +238,29 @@ export default function Step1() {
               {errors.contact_email && <span className="error-msg">{errors.contact_email}</span>}
             </div>
           </div>
+
+          <div className="form-group">
+            <label>Is your quality system certified? <span className="required">*</span></label>
+            <ChoiceButtons
+              value={form.quality_certified}
+              onChange={v => handleFieldChange('quality_certified', v)}
+            />
+            {errors.quality_certified && <span className="error-msg">{errors.quality_certified}</span>}
+          </div>
+
+          {form.quality_certified === 'Yes' && (
+            <div className="form-group">
+              <label>Which certifications do you hold? <span className="required">*</span></label>
+              <input
+                type="text"
+                value={form.quality_certifications}
+                onChange={e => handleFieldChange('quality_certifications', e.target.value)}
+                placeholder="e.g. ISO 9001, ISO 14001, FSSC 22000"
+                className={errors.quality_certifications ? 'error' : ''}
+              />
+              {errors.quality_certifications && <span className="error-msg">{errors.quality_certifications}</span>}
+            </div>
+          )}
         </div>
 
         <div className="card" style={{ marginTop: '20px' }}>
@@ -279,6 +312,7 @@ export default function Step1() {
           </button>
         </div>
 
+        <div style={{ marginTop: '20px' }}><FormErrorBanner message={saveError} /></div>
         <div className="step-actions">
           <div className="step-actions-info">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -289,7 +323,7 @@ export default function Step1() {
             Your progress is saved automatically when you proceed.
           </div>
           <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
-            {loading ? <><span className="spinner" /> Saving...</> : 'Continue to Compliance →'}
+            {loading ? <><span className="spinner" /> Saving...</> : 'Save and Continue →'}
           </button>
         </div>
       </form>

@@ -6,6 +6,7 @@ import RawMaterialDocsTab from './RawMaterialDocsTab';
 import './Admin.css';
 
 const STATUS_COLORS = {
+  'In Progress': 'badge-progress',
   'Submitted': 'badge-submitted',
   'Under Review': 'badge-review',
   'Approved': 'badge-approved',
@@ -86,6 +87,7 @@ export default function Dashboard() {
   // Stats
   const stats = {
     total: submissions.length,
+    inProgress: submissions.filter(s => s.status === 'In Progress').length,
     submitted: submissions.filter(s => s.status === 'Submitted').length,
     review: submissions.filter(s => s.status === 'Under Review').length,
     approved: submissions.filter(s => s.status === 'Approved').length,
@@ -116,8 +118,8 @@ export default function Dashboard() {
   const handleRestore = async (e, id) => {
     e.stopPropagation();
     try {
-      await archiveSubmission(id, false);
-      setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: 'Submitted' } : s));
+      const res = await archiveSubmission(id, false);
+      setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: res.data.status } : s));
     } catch (err) {
       alert('Failed to restore submission.');
     }
@@ -158,6 +160,7 @@ export default function Dashboard() {
       {/* Stats */}
       <div className="stats-row">
         <StatCard label="Total Submissions" value={stats.total} color="gray" />
+        <StatCard label="In Progress" value={stats.inProgress} color="gray" />
         <StatCard label="Submitted" value={stats.submitted} color="blue" />
         <StatCard label="Under Review" value={stats.review} color="yellow" />
         <StatCard label="Approved" value={stats.approved} color="green" />
@@ -181,6 +184,7 @@ export default function Dashboard() {
 
           <select value={filters.status} onChange={e => updateFilter('status', e.target.value)}>
             <option value="">All Statuses</option>
+            <option>In Progress</option>
             <option>Submitted</option>
             <option>Under Review</option>
             <option>Approved</option>
@@ -283,8 +287,8 @@ export default function Dashboard() {
                       </span>
                     </td>
                     <td>
-                      <span className={`badge ${STATUS_COLORS[s.status] || 'badge-submitted'}`}>
-                        {s.status || 'Submitted'}
+                      <span className={`badge ${STATUS_COLORS[s.status] || 'badge-progress'}`}>
+                        {s.status || 'In Progress'}
                       </span>
                     </td>
                     <td>

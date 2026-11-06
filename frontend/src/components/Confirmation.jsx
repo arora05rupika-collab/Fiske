@@ -1,9 +1,8 @@
 import React from 'react';
-import { useParams, useLocation, Link } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import './Confirmation.css';
 
 export default function Confirmation() {
-  const { id } = useParams();
   const location = useLocation();
   const state = location.state || {};
 
@@ -56,9 +55,6 @@ export default function Confirmation() {
           </div>
 
           <div className="conf-actions">
-            <Link to="/form/step1" className="btn btn-outline">
-              Submit Another Form
-            </Link>
             <a href="https://lubriplate.com" className="btn btn-black" target="_blank" rel="noopener noreferrer">
               Visit Lubriplate.com
             </a>

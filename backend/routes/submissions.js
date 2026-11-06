@@ -8,41 +8,17 @@ const { getDb } = require('../database');
 const { sendConfirmationEmail, sendTeamNotificationEmail } = require('../email');
 const sharepoint = require('../sharepoint');
 
-// Dynamic multer storage based on submission id
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const submissionId = req.params.id || req.body.submission_id || 'temp';
-    const productName = req.body.product_name
-      ? req.body.product_name.replace(/[^a-zA-Z0-9-_]/g, '_')
-      : null;
+function uniqueFilename(req, file, cb) {
+  const ext = path.extname(file.originalname);
+  const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9-_]/g, '_');
+  cb(null, `${base}_${Date.now()}${ext}`);
+}
 
-    let uploadPath;
-    if (productName) {
-      uploadPath = path.join(__dirname, '..', 'uploads', submissionId, productName);
-    } else {
-      uploadPath = path.join(__dirname, '..', 'uploads', submissionId);
-    }
-
-    fs.mkdirSync(uploadPath, { recursive: true });
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9-_]/g, '_');
-    cb(null, `${base}_${Date.now()}${ext}`);
-  }
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
-  fileFilter: (req, file, cb) => {
-    const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(ext)) cb(null, true);
-    else cb(new Error('File type not allowed'));
-  }
-});
+function allowedFileTypes(req, file, cb) {
+  const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
+  if (allowed.includes(path.extname(file.originalname).toLowerCase())) cb(null, true);
+  else cb(new Error('File type not allowed. Please upload a PDF, JPG, PNG, DOC or DOCX file.'));
+}
 
 // Generate reference number
 function generateRef() {
@@ -59,7 +35,7 @@ router.post('/step1', (req, res) => {
   try {
     const db = getDb();
     const id = uuidv4();
-    const { company_name, contact_name, contact_email, country, products } = req.body;
+    const { company_name, contact_name, contact_email, country, products, quality_certified, quality_certifications, supplier_id } = req.body;
 
     if (!company_name || !contact_name || !contact_email) {
       return res.status(400).json({ error: 'Company name, contact name and email are required' });
@@ -70,11 +46,18 @@ router.post('/step1', (req, res) => {
     }
 
     const ref = generateRef();
+    const knownSupplier = supplier_id ? db.prepare('SELECT id FROM Suppliers WHERE id = ?').get(supplier_id) : null;
 
     db.prepare(`
-      INSERT INTO SupplierSubmissions (id, company_name, contact_name, contact_email, country, reference_number, step_completed)
-      VALUES (?, ?, ?, ?, ?, ?, 1)
-    `).run(id, company_name, contact_name, contact_email, country || null, ref);
+      INSERT INTO SupplierSubmissions (id, company_name, contact_name, contact_email, country, reference_number, step_completed,
+        status, quality_certified, quality_certifications, supplier_id)
+      VALUES (?, ?, ?, ?, ?, ?, 1, 'In Progress', ?, ?, ?)
+    `).run(
+      id, company_name, contact_name, contact_email, country || null, ref,
+      quality_certified || null,
+      quality_certified === 'Yes' ? (quality_certifications || null) : null,
+      knownSupplier ? knownSupplier.id : null
+    );
 
     // Insert products
     const insertProduct = db.prepare(`
@@ -96,113 +79,75 @@ router.post('/step1', (req, res) => {
   }
 });
 
-// Step 2: Update compliance info (with file uploads)
-const step2Upload = upload.fields([
-  { name: 'kosher_cert_file', maxCount: 1 },
-  { name: 'halal_cert_file', maxCount: 1 },
-  { name: 'sds_file_0', maxCount: 1 }, { name: 'sds_file_1', maxCount: 1 },
-  { name: 'sds_file_2', maxCount: 1 }, { name: 'sds_file_3', maxCount: 1 },
-  { name: 'sds_file_4', maxCount: 1 }, { name: 'sds_file_5', maxCount: 1 },
-  { name: 'sds_file_6', maxCount: 1 }, { name: 'sds_file_7', maxCount: 1 },
-  { name: 'sds_file_8', maxCount: 1 }, { name: 'sds_file_9', maxCount: 1 },
-  { name: 'tds_file_0', maxCount: 1 }, { name: 'tds_file_1', maxCount: 1 },
-  { name: 'tds_file_2', maxCount: 1 }, { name: 'tds_file_3', maxCount: 1 },
-  { name: 'tds_file_4', maxCount: 1 }, { name: 'tds_file_5', maxCount: 1 },
-  { name: 'tds_file_6', maxCount: 1 }, { name: 'tds_file_7', maxCount: 1 },
-  { name: 'tds_file_8', maxCount: 1 }, { name: 'tds_file_9', maxCount: 1 },
-  { name: 'nsf_cert_file_0', maxCount: 1 }, { name: 'nsf_cert_file_1', maxCount: 1 },
-  { name: 'nsf_cert_file_2', maxCount: 1 }, { name: 'nsf_cert_file_3', maxCount: 1 },
-  { name: 'nsf_cert_file_4', maxCount: 1 }, { name: 'nsf_cert_file_5', maxCount: 1 },
-  { name: 'nsf_cert_file_6', maxCount: 1 }, { name: 'nsf_cert_file_7', maxCount: 1 },
-  { name: 'nsf_cert_file_8', maxCount: 1 }, { name: 'nsf_cert_file_9', maxCount: 1 },
-]);
+// Step 2: Save one product's documents and answers
+const productUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const safe = (s) => String(s).replace(/[^a-zA-Z0-9-_]/g, '_');
+      const dir = path.join(__dirname, '..', 'uploads', safe(req.params.id), safe(req.params.pid));
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename: uniqueFilename,
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: allowedFileTypes,
+}).fields(['sds_file', 'tds_file', 'nsf_cert_file', 'halal_cert_file', 'kosher_cert_file', 'pfas_file', 'moah_file']
+  .map(name => ({ name, maxCount: 1 })));
 
-router.patch('/:id/step2', step2Upload, (req, res) => {
+function handleProductUpload(req, res, next) {
+  productUpload(req, res, (err) => {
+    if (!err) return next();
+    const message = err.code === 'LIMIT_FILE_SIZE' ? 'One of the files is too large. The maximum size is 20MB.' : err.message;
+    res.status(400).json({ error: message });
+  });
+}
+
+router.patch('/:id/products/:pid', handleProductUpload, (req, res) => {
   try {
     const db = getDb();
-    const { id } = req.params;
+    const { id, pid } = req.params;
     const body = req.body;
     const files = req.files || {};
 
-    const submission = db.prepare('SELECT * FROM SupplierSubmissions WHERE id = ?').get(id);
-    if (!submission) return res.status(404).json({ error: 'Submission not found' });
+    const product = db.prepare('SELECT * FROM SupplierProducts WHERE id = ? AND submission_id = ?').get(pid, id);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
 
-    // File path helper
-    const getFilePath = (fileKey) => {
-      if (files[fileKey] && files[fileKey][0]) {
-        return files[fileKey][0].path.replace(path.join(__dirname, '..'), '');
-      }
-      return null;
-    };
+    const filePath = (key) => files[key]?.[0]
+      ? files[key][0].path.replace(path.join(__dirname, '..'), '').split(path.sep).join('/')
+      : null;
 
-    // Update submission-level compliance fields
-    const kosherFilePath = getFilePath('kosher_cert_file');
-    const halalFilePath = getFilePath('halal_cert_file');
+    const halal = body.halal_certified || null;
+    const kosher = body.kosher_certified || null;
 
     db.prepare(`
-      UPDATE SupplierSubmissions SET
-        regulatory_compliant = ?,
-        regulatory_penalties = ?,
-        penalty_details = ?,
-        kosher_cert_na = ?,
-        kosher_cert_expiry = ?,
-        kosher_cert_body = ?,
-        kosher_cert_file_path = COALESCE(?, kosher_cert_file_path),
-        halal_cert_na = ?,
-        halal_cert_expiry = ?,
-        halal_cert_body = ?,
-        halal_cert_file_path = COALESCE(?, halal_cert_file_path),
-        step_completed = 2
+      UPDATE SupplierProducts SET
+        pfas_free = ?, pfas_file_path = COALESCE(?, pfas_file_path),
+        moah_free = ?, moah_file_path = COALESCE(?, moah_file_path),
+        sds_file_path = COALESCE(?, sds_file_path),
+        tds_file_path = COALESCE(?, tds_file_path),
+        nsf_cert_file_path = COALESCE(?, nsf_cert_file_path),
+        nsf_cert_expiry = ?, nsf_registration_number = ?,
+        halal_certified = ?, halal_cert_file_path = COALESCE(?, halal_cert_file_path), halal_cert_expiry = ?,
+        kosher_certified = ?, kosher_cert_file_path = COALESCE(?, kosher_cert_file_path), kosher_cert_expiry = ?
       WHERE id = ?
     `).run(
-      body.regulatory_compliant || null,
-      body.regulatory_penalties || null,
-      body.penalty_details || null,
-      body.kosher_cert_na === 'true' || body.kosher_cert_na === true ? 1 : 0,
-      body.kosher_cert_expiry || null,
-      body.kosher_cert_body || null,
-      kosherFilePath,
-      body.halal_cert_na === 'true' || body.halal_cert_na === true ? 1 : 0,
-      body.halal_cert_expiry || null,
-      body.halal_cert_body || null,
-      halalFilePath,
-      id
+      body.pfas_free || null, filePath('pfas_file'),
+      body.moah_free || null, filePath('moah_file'),
+      filePath('sds_file'),
+      filePath('tds_file'),
+      filePath('nsf_cert_file'),
+      body.nsf_cert_expiry || null, body.nsf_registration_number || null,
+      halal, filePath('halal_cert_file'), halal === 'Yes' ? (body.halal_cert_expiry || null) : null,
+      kosher, filePath('kosher_cert_file'), kosher === 'Yes' ? (body.kosher_cert_expiry || null) : null,
+      pid
     );
 
-    // Update products
-    const products = db.prepare('SELECT * FROM SupplierProducts WHERE submission_id = ? ORDER BY sort_order').all(id);
+    db.prepare('UPDATE SupplierSubmissions SET step_completed = MAX(step_completed, 2) WHERE id = ?').run(id);
 
-    products.forEach((product, index) => {
-      const productData = body[`products[${index}]`] ? JSON.parse(body[`products[${index}]`]) : {};
-      const sdsPath = getFilePath(`sds_file_${index}`);
-      const tdsPath = getFilePath(`tds_file_${index}`);
-      const nsfPath = getFilePath(`nsf_cert_file_${index}`);
-
-      db.prepare(`
-        UPDATE SupplierProducts SET
-          pfas_free = ?,
-          moah_free = ?,
-          sds_file_path = COALESCE(?, sds_file_path),
-          tds_file_path = COALESCE(?, tds_file_path),
-          nsf_cert_file_path = COALESCE(?, nsf_cert_file_path),
-          nsf_cert_expiry = ?,
-          nsf_registration_number = ?
-        WHERE id = ?
-      `).run(
-        body[`pfas_free_${index}`] || productData.pfas_free || null,
-        body[`moah_free_${index}`] || productData.moah_free || null,
-        sdsPath,
-        tdsPath,
-        nsfPath,
-        body[`nsf_expiry_${index}`] || productData.nsf_cert_expiry || null,
-        body[`nsf_reg_${index}`] || productData.nsf_registration_number || null,
-        product.id
-      );
-    });
-
-    res.json({ success: true, id });
+    res.json({ success: true, product: db.prepare('SELECT * FROM SupplierProducts WHERE id = ?').get(pid) });
   } catch (err) {
-    console.error('Step 2 error:', err);
+    console.error('Product save error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -212,24 +157,26 @@ router.patch('/:id/step3', (req, res) => {
   try {
     const db = getDb();
     const { id } = req.params;
-    const { allergens, cross_contamination_procedures, wheat_starch_packaging } = req.body;
+    const { allergens, allergens_in_products, allergens_in_plant, cross_contamination_procedures, wheat_starch_packaging } = req.body;
 
     const submission = db.prepare('SELECT * FROM SupplierSubmissions WHERE id = ?').get(id);
     if (!submission) return res.status(404).json({ error: 'Submission not found' });
 
     db.prepare(`
       UPDATE SupplierSubmissions SET
+        allergens_in_products = ?,
+        allergens_in_plant = ?,
         cross_contamination_procedures = ?,
         wheat_starch_packaging = ?,
         step_completed = 3
       WHERE id = ?
-    `).run(cross_contamination_procedures || null, wheat_starch_packaging || null, id);
+    `).run(allergens_in_products || null, allergens_in_plant || null, cross_contamination_procedures || null, wheat_starch_packaging || null, id);
 
     // Delete existing allergens for this submission
     db.prepare('DELETE FROM SupplierAllergens WHERE submission_id = ?').run(id);
 
     // Insert new allergen data
-    if (allergens && Array.isArray(allergens)) {
+    if (allergens_in_products === 'Yes' && Array.isArray(allergens)) {
       const insertAllergen = db.prepare(`
         INSERT INTO SupplierAllergens (id, product_id, submission_id, allergen_code, allergen_label, in_product, same_line, same_plant)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -251,17 +198,17 @@ router.patch('/:id/step3', (req, res) => {
   }
 });
 
-// Step 4: EU Compliance declarations (RoHS, SVHC, PFAS, FMD)
+// Step 4: Regulatory declarations (REACH, RoHS, Conflict Minerals, Melamine, PBT, POPs, PPWR)
 router.patch('/:id/step4-compliance', (req, res) => {
   try {
     const db = getDb();
     const { id } = req.params;
-    const { rohs_data, svhc_data, pfas_data, fmd_data } = req.body;
+    const { rohs_data, svhc_data, declarations } = req.body;
 
     const submission = db.prepare('SELECT * FROM SupplierSubmissions WHERE id = ?').get(id);
     if (!submission) return res.status(404).json({ error: 'Submission not found' });
 
-    const complianceData = JSON.stringify({ rohs_data, svhc_data, pfas_data, fmd_data });
+    const complianceData = JSON.stringify({ rohs_data, svhc_data, declarations });
 
     db.prepare(`
       UPDATE SupplierSubmissions SET
@@ -342,45 +289,9 @@ router.patch('/:id/step4', signatureUpload.single('signature_image'), async (req
       console.error('SharePoint sync error (non-fatal):', err.message)
     );
 
-    // Populate doc library from submitted files
+    // File every submitted document into the Raw Material Docs library
     try {
-      const supplier = db.prepare('SELECT * FROM Suppliers WHERE contact_email = ?').get(updatedSubmission.contact_email);
-      if (supplier) {
-        const rmIds = (() => { try { return JSON.parse(supplier.raw_materials || '[]'); } catch { return []; } })();
-        const allRM = rmIds.length
-          ? db.prepare(`SELECT * FROM RawMaterials WHERE id IN (${rmIds.map(() => '?').join(',')})`).all(...rmIds)
-          : [];
-        const foodGradeIds = JSON.stringify(allRM.filter(m => m.type === 'Food Grade').map(m => m.id));
-
-        const insertDoc = db.prepare(`
-          INSERT OR IGNORE INTO RawMaterialDocs (id, file_name, file_path, document_type, raw_materials, expiry_date, supplier_id, supplier_name)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        // Per-product docs
-        products.forEach(product => {
-          const matchRM = allRM.find(m => m.name.toLowerCase() === product.product_name.toLowerCase());
-          const productRmIds = JSON.stringify(matchRM ? [matchRM.id] : []);
-
-          if (product.sds_file_path) {
-            insertDoc.run(uuidv4(), `${product.product_name} - SDS`, product.sds_file_path, 'SDS (Safety Data Sheet)', productRmIds, null, supplier.id, supplier.name);
-          }
-          if (product.tds_file_path) {
-            insertDoc.run(uuidv4(), `${product.product_name} - TDS`, product.tds_file_path, 'TDS (Technical Data Sheet)', productRmIds, null, supplier.id, supplier.name);
-          }
-          if (product.nsf_cert_file_path) {
-            insertDoc.run(uuidv4(), `${product.product_name} - NSF Certificate`, product.nsf_cert_file_path, 'NSF Certificate', productRmIds, product.nsf_cert_expiry || null, supplier.id, supplier.name);
-          }
-        });
-
-        // Submission-level certs (apply to all food grade materials)
-        if (updatedSubmission.kosher_cert_file_path && !updatedSubmission.kosher_cert_na) {
-          insertDoc.run(uuidv4(), `${updatedSubmission.company_name} - Kosher Certificate`, updatedSubmission.kosher_cert_file_path, 'Kosher Certificate', foodGradeIds, updatedSubmission.kosher_cert_expiry || null, supplier.id, supplier.name);
-        }
-        if (updatedSubmission.halal_cert_file_path && !updatedSubmission.halal_cert_na) {
-          insertDoc.run(uuidv4(), `${updatedSubmission.company_name} - Halal Certificate`, updatedSubmission.halal_cert_file_path, 'Halal Certificate', foodGradeIds, updatedSubmission.halal_cert_expiry || null, supplier.id, supplier.name);
-        }
-      }
+      fileSubmissionDocs(db, updatedSubmission, products);
     } catch (docErr) {
       console.error('Doc library populate error (non-fatal):', docErr.message);
     }
@@ -419,5 +330,54 @@ router.get('/:id', (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+function findSupplierForSubmission(db, submission) {
+  if (submission.supplier_id) {
+    const byId = db.prepare('SELECT * FROM Suppliers WHERE id = ?').get(submission.supplier_id);
+    if (byId) return byId;
+  }
+  if (submission.contact_email) {
+    const byEmail = db.prepare('SELECT * FROM Suppliers WHERE LOWER(TRIM(contact_email)) = LOWER(TRIM(?))').get(submission.contact_email);
+    if (byEmail) return byEmail;
+  }
+  return db.prepare('SELECT * FROM Suppliers WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))').get(submission.company_name || '') || null;
+}
+
+function fileSubmissionDocs(db, submission, products) {
+  const supplier = findSupplierForSubmission(db, submission);
+  const supplierId = supplier ? supplier.id : '';
+  const supplierName = supplier ? supplier.name : (submission.company_name || '');
+
+  const supplierRmIds = supplier ? (() => { try { return JSON.parse(supplier.raw_materials || '[]'); } catch { return []; } })() : [];
+  const allRM = db.prepare('SELECT * FROM RawMaterials').all();
+  const rmCodeFor = (productName) => {
+    const name = (productName || '').trim().toLowerCase();
+    const matches = allRM.filter(m => m.name.trim().toLowerCase() === name);
+    const preferred = matches.find(m => supplierRmIds.includes(m.id)) || matches[0];
+    return JSON.stringify(preferred ? [preferred.id] : []);
+  };
+
+  const insertDoc = db.prepare(`
+    INSERT INTO RawMaterialDocs (id, file_name, file_path, document_type, raw_materials, expiry_date, supplier_id, supplier_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  products.forEach(product => {
+    const rm = rmCodeFor(product.product_name);
+    const docs = [
+      [product.sds_file_path, 'SDS', 'SDS (Safety Data Sheet)', null],
+      [product.tds_file_path, 'TDS', 'TDS (Technical Data Sheet)', null],
+      [product.nsf_cert_file_path, 'NSF Certificate', 'NSF Certificate', product.nsf_cert_expiry],
+      [product.halal_certified === 'Yes' && product.halal_cert_file_path, 'Halal Certificate', 'Halal Certificate', product.halal_cert_expiry],
+      [product.kosher_certified === 'Yes' && product.kosher_cert_file_path, 'Kosher Certificate', 'Kosher Certificate', product.kosher_cert_expiry],
+      [product.pfas_file_path, 'PFAS Statement', 'PFAS Statement', null],
+      [product.moah_file_path, 'MOAH Statement', 'MOAH Statement', null],
+    ];
+    docs.forEach(([filePath, label, docType, expiry]) => {
+      if (!filePath) return;
+      insertDoc.run(uuidv4(), `${product.product_name} - ${label}`, filePath, docType, rm, expiry || null, supplierId, supplierName);
+    });
+  });
+}
 
 module.exports = router;
